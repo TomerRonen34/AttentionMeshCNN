@@ -110,7 +110,8 @@ def define_classifier(input_nc, ncf, ninput_edges, nclasses, opt, gpu_ids, arch,
                           opt.resblocks)
     elif arch == 'meshattentionnet':
         net = MeshAttentionNet(norm_layer, input_nc, ncf, nclasses, ninput_edges, opt.pool_res, opt.fc_n,
-                               n_head=4, nresblocks=opt.resblocks)
+                               opt.n_attn_heads, nresblocks=opt.resblocks, attn_dropout=opt.attn_dropout,
+                               prioritize_with_attention=opt.prioritize_with_attention)
     elif arch == 'meshunet':
         down_convs = [input_nc] + ncf
         up_convs = ncf[::-1] + [nclasses]
@@ -140,18 +141,21 @@ class MeshAttentionNet(nn.Module):
     def __init__(self, norm_layer, nf0, conv_res, nclasses, input_res, pool_res, fc_n,
                  n_head,
                  # d_k, d_v,
+                 nresblocks=3,
                  attn_dropout=0.1,
-                 nresblocks=3):
+                 prioritize_with_attention=False):
         super(MeshAttentionNet, self).__init__()
         self.k = [nf0] + conv_res
         self.res = [input_res] + pool_res
+        self.prioritize_with_attention = prioritize_with_attention
         norm_args = get_norm_args(norm_layer, self.k[1:])
 
         for i, ki in enumerate(self.k[:-1]):
             setattr(self, 'conv{}'.format(i), MResConv(ki, self.k[i + 1], nresblocks))
             setattr(self, 'norm{}'.format(i), norm_layer(**norm_args[i]))
             setattr(self, 'attention{}'.format(i), MultiHeadAttention(
-                n_head, self.k[i + 1], d_k=int(self.k[i + 1] / n_head), d_v=int(self.k[i + 1] / n_head), dropout=attn_dropout))
+                n_head, self.k[i + 1], d_k=int(self.k[i + 1] / n_head), d_v=int(self.k[i + 1] / n_head),
+                dropout=attn_dropout))
             setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
 
         self.gp = torch.nn.AvgPool1d(self.res[-1])
@@ -164,8 +168,16 @@ class MeshAttentionNet(nn.Module):
         for i in range(len(self.k) - 1):
             x = getattr(self, 'conv{}'.format(i))(x, mesh)
             x = F.relu(getattr(self, 'norm{}'.format(i))(x))
-            x, attn = getattr(self, 'attention{}'.format(i))(x, x, x)
-            x = getattr(self, 'pool{}'.format(i))(x, mesh)
+            # x: [batch, features, edges, 1]
+            s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
+            s, attn = getattr(self, 'attention{}'.format(i))(s, s, s)
+            # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
+            edge_priorities = None
+            if self.prioritize_with_attention:
+                # TODO: add mask to attention and/or to prioritization, to avoid ghost edges
+                edge_priorities = torch.mean(attn, (1, 2))
+            x = s.transpose(1, 2).unsqueeze(3)
+            x = getattr(self, 'pool{}'.format(i))(x, mesh, edge_priorities)
 
         x = self.gp(x)
         x = x.view(-1, self.k[-1])

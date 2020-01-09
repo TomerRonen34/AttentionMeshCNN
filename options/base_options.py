@@ -26,6 +26,11 @@ class BaseOptions:
         self.parser.add_argument('--num_groups', type=int, default=16, help='# of groups for groupnorm')
         self.parser.add_argument('--init_type', type=str, default='normal', help='network initialization [normal|xavier|kaiming|orthogonal]')
         self.parser.add_argument('--init_gain', type=float, default=0.02, help='scaling factor for normal, xavier and orthogonal.')
+        self.parser.add_argument('--n_attn_heads', type=int, default=4, help='number of heads for Multi Headed Attention')
+        self.parser.add_argument('--prioritize_with_attention', action='store_true',
+                                 help='if given, the priority queue for the pool operation is calculated from the attention softmax.'
+                                      'default priority is l2 norm')
+        self.parser.add_argument('--attn_dropout', type=float, default=0.1, help='dropout fraction for attention layer')
         # general params
         self.parser.add_argument('--num_threads', default=3, type=int, help='# threads for loading data')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
