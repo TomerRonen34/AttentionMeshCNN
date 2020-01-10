@@ -1,16 +1,39 @@
-"""
-from
-https://github.com/jadore801120/attention-is-all-you-need-pytorch
-"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-__author__ = "Yu-Hsiang Huang"
+
+class MeshAttention(nn.Module):
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
+        super().__init__()
+        self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
+
+    def forward(self, x, meshes):
+        """
+        x: [batch, features, edges, 1]
+        meshes: list of mesh objects
+        """
+        n_batch, max_n_edges = x.shape[0], x.shape[2]
+        mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool)
+        for i_mesh in range(n_batch):
+            n_edges = meshes[i_mesh].edges_count
+            mask[i_mesh, :n_edges, :n_edges] = 1
+        # TODO: do we really need a mask? seems like all the meshes are always the same size
+        print(max_n_edges, [m.edges_count for m in meshes], torch.all(mask).item())
+
+        s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
+        s, attn = self.multi_head_attention.forward(s, s, s, mask)
+        # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
+        x = s.transpose(1, 2).unsqueeze(3)
+        return x, attn
 
 
 class MultiHeadAttention(nn.Module):
-    ''' Multi-Head Attention module '''
+    """
+    Multi-Head Attention module
+    from https://github.com/jadore801120/attention-is-all-you-need-pytorch
+    by Yu-Hsiang Huang
+    """
 
     def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
         super().__init__()
@@ -60,7 +83,11 @@ class MultiHeadAttention(nn.Module):
 
 
 class ScaledDotProductAttention(nn.Module):
-    ''' Scaled Dot-Product Attention '''
+    """
+    Scaled Dot-Product Attention
+    from https://github.com/jadore801120/attention-is-all-you-need-pytorch
+    by Yu-Hsiang Huang
+    """
 
     def __init__(self, temperature, attn_dropout=0.1):
         super().__init__()
