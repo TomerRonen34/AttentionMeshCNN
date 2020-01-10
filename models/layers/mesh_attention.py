@@ -14,12 +14,12 @@ class MeshAttention(nn.Module):
         meshes: list of mesh objects
         """
         n_batch, max_n_edges = x.shape[0], x.shape[2]
-        mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool)
+        mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool, device=x.device)
         for i_mesh in range(n_batch):
             n_edges = meshes[i_mesh].edges_count
             mask[i_mesh, :n_edges, :n_edges] = 1
         # TODO: do we really need a mask? seems like all the meshes are always the same size
-        print(max_n_edges, [m.edges_count for m in meshes], torch.all(mask).item())
+        # print(max_n_edges, [m.edges_count for m in meshes], torch.all(mask).item())
 
         s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
         s, attn = self.multi_head_attention.forward(s, s, s, mask)
