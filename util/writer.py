@@ -14,12 +14,13 @@ class Writer:
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)
         self.log_name = os.path.join(self.save_dir, 'loss_log.txt')
         self.testacc_log = os.path.join(self.save_dir, 'testacc_log.txt')
+        self.tensorboardX_dir = os.path.join(self.save_dir, 'tbx')
         self.start_logs()
         self.nexamples = 0
         self.ncorrect = 0
         #
         if opt.is_train and not opt.no_vis and SummaryWriter is not None:
-            self.display = SummaryWriter(comment=opt.name)
+            self.display = SummaryWriter(logdir=self.tensorboardX_dir, comment=opt.name)
         else:
             self.display = None
 

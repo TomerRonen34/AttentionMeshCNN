@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 DATASET="shrec_16"
 ARCH="mconvnet"
-DATETIME=`date +%Y-%m-%d_%H-%M-%S`
-NAME="${DATASET}_${ARCH}_${DATETIME}"
+DATETIME=`date +%Y-%m-%d_%H-%M-%S` # "2020-01-10_16-51-01" #
+ADD_TO_NAME="_more_params"
+NAME="${DATASET}_${ARCH}${ADD_TO_NAME}_${DATETIME}"
 
-LOGDIR="logs/${NAME}"
+LOGDIR="checkpoints/${NAME}"
 mkdir -p ${LOGDIR}
-LOGFILE="${LOGDIR}/${NAME}.log"
-exec &> >(tee ${LOGFILE})
+LOGFILE="${LOGDIR}/bash_log.log"
+exec &> >(tee -a ${LOGFILE})
 
 ## run the training
 python -u train.py \
@@ -20,5 +21,8 @@ python -u train.py \
 --flip_edges 0.2 \
 --slide_verts 0.2 \
 --num_aug 20 \
---niter_decay 100 \
+--niter_decay 200 \
 --arch ${ARCH} \
+
+#--continue_train \
+#--epoch_count 201 \
