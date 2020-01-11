@@ -8,19 +8,30 @@ class MeshAttention(nn.Module):
         super().__init__()
         self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
 
-    def forward(self, x, meshes):
+    @staticmethod
+    def __create_edge_mask(x, meshes):
         """
-        x: [batch, features, edges, 1]
-        meshes: list of mesh objects
+        create binary mask of size [n_batch, max_n_edges, max_n_edges]
+        for mesh i with E actual edges, mask[i,:E,:E] = 1
         """
         n_batch, max_n_edges = x.shape[0], x.shape[2]
         mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool, device=x.device)
         for i_mesh in range(n_batch):
             n_edges = meshes[i_mesh].edges_count
             mask[i_mesh, :n_edges, :n_edges] = 1
-        # TODO: do we really need a mask? seems like all the meshes are always the same size
-        # print(max_n_edges, [m.edges_count for m in meshes], torch.all(mask).item())
+        # TODO:  in shrec all meshes are always the same size, what happens in other datasets?
+        # print("all same?", len(set([m.edges_count for m in meshes])) == 1,
+        #       "| mask full?", torch.all(mask).item(),
+        #       "| max edges:", max_n_edges,
+        #       "| edge counts:", [m.edges_count for m in meshes])
+        return mask
 
+    def forward(self, x, meshes):
+        """
+        x: [batch, features, edges, 1]
+        meshes: list of mesh objects
+        """
+        mask = self.__create_edge_mask(x, meshes)
         s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
         s, attn = self.multi_head_attention.forward(s, s, s, mask)
         # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
