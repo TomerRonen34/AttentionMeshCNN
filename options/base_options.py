@@ -31,6 +31,7 @@ class BaseOptions:
                                  help='if given, the priority queue for the pool operation is calculated from the attention softmax.'
                                       'default priority is l2 norm')
         self.parser.add_argument('--attn_dropout', type=float, default=0.1, help='dropout fraction for attention layer')
+        self.parser.add_argument('--attn_max_dist', type=int, default=None, help='max distance for local attention. default (None) is global attention')
         # general params
         self.parser.add_argument('--num_threads', default=3, type=int, help='# threads for loading data')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')

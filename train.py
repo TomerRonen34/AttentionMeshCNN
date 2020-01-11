@@ -4,6 +4,7 @@ from data import DataLoader
 from models import create_model
 from util.writer import Writer
 from test import run_test
+import models.layers.mesh   # Has to be here in order to compile cython lang-perf
 
 if __name__ == '__main__':
     opt = TrainOptions().parse()

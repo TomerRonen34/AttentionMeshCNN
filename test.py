@@ -2,6 +2,7 @@ from options.test_options import TestOptions
 from data import DataLoader
 from models import create_model
 from util.writer import Writer
+import models.layers.mesh   # Has to be here in order to compile cython lang-perf
 
 
 def run_test(epoch=-1):

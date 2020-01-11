@@ -110,8 +110,9 @@ def define_classifier(input_nc, ncf, ninput_edges, nclasses, opt, gpu_ids, arch,
                           opt.resblocks)
     elif arch == 'meshattentionnet':
         net = MeshAttentionNet(norm_layer, input_nc, ncf, nclasses, ninput_edges, opt.pool_res, opt.fc_n,
-                               opt.n_attn_heads, nresblocks=opt.resblocks, attn_dropout=opt.attn_dropout,
-                               prioritize_with_attention=opt.prioritize_with_attention)
+                               opt.n_attn_heads, nresblocks=opt.resblocks, attn_max_dist=opt.attn_max_dist,
+                               attn_dropout=opt.attn_dropout,
+                               prioritize_with_attention=opt.prioritize_with_attention,)
     elif arch == 'meshunet':
         down_convs = [input_nc] + ncf
         up_convs = ncf[::-1] + [nclasses]
@@ -142,6 +143,7 @@ class MeshAttentionNet(nn.Module):
                  n_head,
                  # d_k, d_v,
                  nresblocks=3,
+                 attn_max_dist=None,
                  attn_dropout=0.1,
                  prioritize_with_attention=False):
         super(MeshAttentionNet, self).__init__()
@@ -155,6 +157,7 @@ class MeshAttentionNet(nn.Module):
             setattr(self, 'norm{}'.format(i), norm_layer(**norm_args[i]))
             setattr(self, 'attention{}'.format(i), MeshAttention(
                 n_head, self.k[i + 1], d_k=int(self.k[i + 1] / n_head), d_v=int(self.k[i + 1] / n_head),
+                attn_max_dist=attn_max_dist,
                 dropout=attn_dropout))
             setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
 
@@ -168,10 +171,10 @@ class MeshAttentionNet(nn.Module):
         for i in range(len(self.k) - 1):
             x = getattr(self, 'conv{}'.format(i))(x, mesh)
             x = F.relu(getattr(self, 'norm{}'.format(i))(x))
-            x, attn = getattr(self, 'attention{}'.format(i))(x, mesh)
+            x, attn, attn_per_edge = getattr(self, 'attention{}'.format(i))(x, mesh)
             edge_priorities = None
             if self.prioritize_with_attention:
-                edge_priorities = torch.mean(attn, (1, 2))
+                edge_priorities = attn_per_edge
             x = getattr(self, 'pool{}'.format(i))(x, mesh, edge_priorities)
 
         x = self.gp(x)

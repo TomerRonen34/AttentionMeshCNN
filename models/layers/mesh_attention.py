@@ -4,28 +4,77 @@ import torch.nn.functional as F
 
 
 class MeshAttention(nn.Module):
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
+    def __init__(self, n_head, d_model, d_k, d_v, attn_max_dist=None, dropout=0.1):
         super().__init__()
+        self.attn_max_dist = attn_max_dist  # if None it is global attention
         self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
 
-    def forward(self, x, meshes):
+    @staticmethod
+    def __create_global_edge_mask(x, meshes):
         """
-        x: [batch, features, edges, 1]
-        meshes: list of mesh objects
+        create binary mask of size [n_batch, max_n_edges, max_n_edges]
+        for mesh i with E actual edges, mask[i,:E,:E] = 1
         """
         n_batch, max_n_edges = x.shape[0], x.shape[2]
         mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool, device=x.device)
         for i_mesh in range(n_batch):
             n_edges = meshes[i_mesh].edges_count
             mask[i_mesh, :n_edges, :n_edges] = 1
-        # TODO: do we really need a mask? seems like all the meshes are always the same size
-        # print(max_n_edges, [m.edges_count for m in meshes], torch.all(mask).item())
+        # TODO:  in shrec all meshes are always the same size, what happens in other datasets?
+        # print("all same?", len(set([m.edges_count for m in meshes])) == 1,
+        #       "| mask full?", torch.all(mask).item(),
+        #       "| max edges:", max_n_edges,
+        #       "| edge counts:", [m.edges_count for m in meshes])
+        return mask
+
+    @staticmethod
+    def __create_local_edge_mask(x, meshes, max_dist, dists_matrices):
+        """
+        create binary mask of size [n_batch, max_n_edges, max_n_edges]
+        for mesh i with E actual edges, mask[i,:E,:E] = 1
+        and masks away all connections that are more distant than max_dist
+        """
+        n_batch, max_n_edges = x.shape[0], x.shape[2]
+        mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool, device=x.device)
+        for i_mesh in range(n_batch):
+            n_edges = meshes[i_mesh].edges_count
+            d_matrix = dists_matrices[i_mesh]
+            mask[i_mesh, :n_edges, :n_edges] = torch.BoolTensor(d_matrix <= max_dist)
+        return mask
+
+    @staticmethod
+    def __attention_per_edge(attn, mask):
+        """
+        attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
+        mask: [batch, edges, edges]. which edges are valid (exist in mesh) and relevant to each other.
+        """
+        if mask is None:
+            return torch.mean(attn, (1, 2))
+
+        mask = mask.unsqueeze(1).float()  # For head axis broadcasting.
+        attn_sum = torch.sum(attn * mask, (1, 2))
+        valid_elements = torch.sum(mask, (1, 2))
+        attn_per_edge = attn_sum / valid_elements
+        return attn_per_edge
+
+    def forward(self, x, meshes):
+        """
+        x: [batch, features, edges, 1]
+        meshes: list of mesh objects
+        """
+        if self.attn_max_dist is not None:
+            dist_matrices = [m.all_pairs_shortest_path() for m in meshes]
+            mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
+        else:
+            mask = self.__create_global_edge_mask(x, meshes)
+        print("mean edges in attention mask:", mask.float().sum(1).mean().item())  # how many edges affect every edge in the attention?
 
         s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
         s, attn = self.multi_head_attention.forward(s, s, s, mask)
         # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
         x = s.transpose(1, 2).unsqueeze(3)
-        return x, attn
+        attn_per_edge = self.__attention_per_edge(attn, mask)
+        return x, attn, attn_per_edge
 
 
 class MultiHeadAttention(nn.Module):
@@ -38,6 +87,7 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
         super().__init__()
 
+        self.attention_type = type
         self.n_head = n_head
         self.d_k = d_k
         self.d_v = d_v
