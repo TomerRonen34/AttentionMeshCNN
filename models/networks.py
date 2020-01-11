@@ -168,10 +168,10 @@ class MeshAttentionNet(nn.Module):
         for i in range(len(self.k) - 1):
             x = getattr(self, 'conv{}'.format(i))(x, mesh)
             x = F.relu(getattr(self, 'norm{}'.format(i))(x))
-            x, attn = getattr(self, 'attention{}'.format(i))(x, mesh)
+            x, attn, attn_per_edge = getattr(self, 'attention{}'.format(i))(x, mesh)
             edge_priorities = None
             if self.prioritize_with_attention:
-                edge_priorities = torch.mean(attn, (1, 2))
+                edge_priorities = attn_per_edge
             x = getattr(self, 'pool{}'.format(i))(x, mesh, edge_priorities)
 
         x = self.gp(x)

@@ -26,6 +26,21 @@ class MeshAttention(nn.Module):
         #       "| edge counts:", [m.edges_count for m in meshes])
         return mask
 
+    @staticmethod
+    def __attention_per_edge(attn, mask):
+        """
+        attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
+        mask: [batch, edges, edges]. which edges are valid (exist in mesh) and relevant to each other.
+        """
+        if mask is None:
+            return torch.mean(attn, (1, 2))
+
+        mask = mask.unsqueeze(1)  # For head axis broadcasting.
+        attn_sum = torch.sum(attn * mask, (1, 2))
+        valid_elements = torch.sum(mask, (1, 2))
+        attn_per_edge = attn_sum / valid_elements
+        return attn_per_edge
+
     def forward(self, x, meshes):
         """
         x: [batch, features, edges, 1]
@@ -36,7 +51,8 @@ class MeshAttention(nn.Module):
         s, attn = self.multi_head_attention.forward(s, s, s, mask)
         # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
         x = s.transpose(1, 2).unsqueeze(3)
-        return x, attn
+        attn_per_edge = self.__attention_per_edge(attn, mask)
+        return x, attn, attn_per_edge
 
 
 class MultiHeadAttention(nn.Module):
