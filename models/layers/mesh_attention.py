@@ -9,7 +9,6 @@ class MeshAttention(nn.Module):
         self.attn_max_dist = attn_max_dist  # if None it is global attention
         self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
 
-
     @staticmethod
     def __create_global_edge_mask(x, meshes):
         """
@@ -28,7 +27,6 @@ class MeshAttention(nn.Module):
         #       "| edge counts:", [m.edges_count for m in meshes])
         return mask
 
-
     @staticmethod
     def __create_local_edge_mask(x, meshes, max_dist, dists_matrices):
         """
@@ -44,6 +42,20 @@ class MeshAttention(nn.Module):
             mask[i_mesh, :n_edges, :n_edges] = torch.BoolTensor(d_matrix <= max_dist)
         return mask
 
+    @staticmethod
+    def __attention_per_edge(attn, mask):
+        """
+        attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
+        mask: [batch, edges, edges]. which edges are valid (exist in mesh) and relevant to each other.
+        """
+        if mask is None:
+            return torch.mean(attn, (1, 2))
+
+        mask = mask.unsqueeze(1)  # For head axis broadcasting.
+        attn_sum = torch.sum(attn * mask, (1, 2))
+        valid_elements = torch.sum(mask, (1, 2))
+        attn_per_edge = attn_sum / valid_elements
+        return attn_per_edge
 
     def forward(self, x, meshes):
         """
@@ -60,7 +72,8 @@ class MeshAttention(nn.Module):
         s, attn = self.multi_head_attention.forward(s, s, s, mask)
         # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
         x = s.transpose(1, 2).unsqueeze(3)
-        return x, attn
+        attn_per_edge = self.__attention_per_edge(attn, mask)
+        return x, attn, attn_per_edge
 
 
 class MultiHeadAttention(nn.Module):
