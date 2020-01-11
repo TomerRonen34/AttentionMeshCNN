@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import time
 
 class MeshConv(nn.Module):
     """ Computes convolution between edges and 4 incident (1-ring) edge neighbors
