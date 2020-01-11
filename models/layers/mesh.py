@@ -209,9 +209,9 @@ class Mesh:
 
     def all_pairs_shortest_path(self):
         if apsp_impl == "cython":
-            self.__all_pairs_shortest_path_cython()
+            return self.__all_pairs_shortest_path_cython()
         elif apsp_impl == "networkx":
-            self.__all_pairs_shortest_path_networkx()
+            return self.__all_pairs_shortest_path_networkx()
 
     def __all_pairs_shortest_path_networkx(self):
         neigh_d = {k: neighs for k, neighs in enumerate(self.gemm_edges.tolist())}

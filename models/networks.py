@@ -155,6 +155,7 @@ class MeshAttentionNet(nn.Module):
             setattr(self, 'norm{}'.format(i), norm_layer(**norm_args[i]))
             setattr(self, 'attention{}'.format(i), MeshAttention(
                 n_head, self.k[i + 1], d_k=int(self.k[i + 1] / n_head), d_v=int(self.k[i + 1] / n_head),
+                attn_max_dist=3,
                 dropout=attn_dropout))
             setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
 

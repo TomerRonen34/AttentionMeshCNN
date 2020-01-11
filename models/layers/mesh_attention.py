@@ -4,12 +4,14 @@ import torch.nn.functional as F
 
 
 class MeshAttention(nn.Module):
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
+    def __init__(self, n_head, d_model, d_k, d_v, attn_max_dist=None, dropout=0.1):
         super().__init__()
+        self.attn_max_dist = attn_max_dist  # if None it is global attention
         self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
 
+
     @staticmethod
-    def __create_edge_mask(x, meshes):
+    def __create_global_edge_mask(x, meshes):
         """
         create binary mask of size [n_batch, max_n_edges, max_n_edges]
         for mesh i with E actual edges, mask[i,:E,:E] = 1
@@ -26,12 +28,34 @@ class MeshAttention(nn.Module):
         #       "| edge counts:", [m.edges_count for m in meshes])
         return mask
 
+
+    @staticmethod
+    def __create_local_edge_mask(x, meshes, max_dist, dists_matrices):
+        """
+        create binary mask of size [n_batch, max_n_edges, max_n_edges]
+        for mesh i with E actual edges, mask[i,:E,:E] = 1
+        and masks away all connections that are more distant than max_dist
+        """
+        n_batch, max_n_edges = x.shape[0], x.shape[2]
+        mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool, device=x.device)
+        for i_mesh in range(n_batch):
+            n_edges = meshes[i_mesh].edges_count
+            d_matrix = dists_matrices[i_mesh]
+            mask[i_mesh, :n_edges, :n_edges] = torch.BoolTensor(d_matrix <= max_dist)
+        return mask
+
+
     def forward(self, x, meshes):
         """
         x: [batch, features, edges, 1]
         meshes: list of mesh objects
         """
-        mask = self.__create_edge_mask(x, meshes)
+        if self.attn_max_dist is not None:
+            dist_matrices = [m.all_pairs_shortest_path() for m in meshes]
+            mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
+        else:
+            mask = self.__create_global_edge_mask(x, meshes)
+
         s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
         s, attn = self.multi_head_attention.forward(s, s, s, mask)
         # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
