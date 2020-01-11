@@ -7,7 +7,7 @@ from models.layers.mesh_conv import MeshConv
 import torch.nn.functional as F
 from models.layers.mesh_pool import MeshPool
 from models.layers.mesh_unpool import MeshUnpool
-from models.layers.self_attention import MultiHeadAttention
+from models.layers.mesh_attention import MeshAttention
 
 
 ###############################################################################
@@ -153,7 +153,7 @@ class MeshAttentionNet(nn.Module):
         for i, ki in enumerate(self.k[:-1]):
             setattr(self, 'conv{}'.format(i), MResConv(ki, self.k[i + 1], nresblocks))
             setattr(self, 'norm{}'.format(i), norm_layer(**norm_args[i]))
-            setattr(self, 'attention{}'.format(i), MultiHeadAttention(
+            setattr(self, 'attention{}'.format(i), MeshAttention(
                 n_head, self.k[i + 1], d_k=int(self.k[i + 1] / n_head), d_v=int(self.k[i + 1] / n_head),
                 dropout=attn_dropout))
             setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
@@ -168,15 +168,10 @@ class MeshAttentionNet(nn.Module):
         for i in range(len(self.k) - 1):
             x = getattr(self, 'conv{}'.format(i))(x, mesh)
             x = F.relu(getattr(self, 'norm{}'.format(i))(x))
-            # x: [batch, features, edges, 1]
-            s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
-            s, attn = getattr(self, 'attention{}'.format(i))(s, s, s)
-            # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
+            x, attn = getattr(self, 'attention{}'.format(i))(x, mesh)
             edge_priorities = None
             if self.prioritize_with_attention:
-                # TODO: add mask to attention and/or to prioritization, to avoid ghost edges
                 edge_priorities = torch.mean(attn, (1, 2))
-            x = s.transpose(1, 2).unsqueeze(3)
             x = getattr(self, 'pool{}'.format(i))(x, mesh, edge_priorities)
 
         x = self.gp(x)

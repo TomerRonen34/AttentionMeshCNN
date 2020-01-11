@@ -1,0 +1,4 @@
+watch -c 'cat checkpoints/{{{{MY_EXP}}}}/bash_log.log | tail -n 35'
+
+such as...
+watch -c 'cat checkpoints/shrec_16_mconvnet_more_params_2020-01-11_10-24-46/bash_log.log | tail -n 35'
