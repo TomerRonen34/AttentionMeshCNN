@@ -15,7 +15,7 @@ python -u train.py \
 --dataroot datasets/${DATASET} \
 --name ${NAME} \
 --ncf 64 128 256 256 256 \
---pool_res 600 450 300 180 150 \
+--pool_res 600 450 300 180 180 \
 --norm group \
 --resblocks 1 \
 --flip_edges 0.2 \

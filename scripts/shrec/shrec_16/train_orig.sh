@@ -2,7 +2,7 @@
 DATASET="shrec_16"
 ARCH="mconvnet"
 DATETIME=`date +%Y-%m-%d_%H-%M-%S` # "2020-01-10_16-51-01" #
-ADD_TO_NAME="_more_params"
+ADD_TO_NAME=""
 NAME="${DATASET}_${ARCH}${ADD_TO_NAME}_${DATETIME}"
 
 LOGDIR="checkpoints/${NAME}"
