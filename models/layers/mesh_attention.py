@@ -65,6 +65,7 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
         super().__init__()
 
+        self.attention_type = type
         self.n_head = n_head
         self.d_k = d_k
         self.d_v = d_v
