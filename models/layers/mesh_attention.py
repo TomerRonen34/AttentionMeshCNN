@@ -52,29 +52,37 @@ class MeshAttention(nn.Module):
         if mask is None:
             return torch.mean(attn, (1, 2))
 
-        mask = mask.unsqueeze(1).float()  # For head axis broadcasting.
-        attn_sum = torch.sum(attn * mask, (1, 2))
-        valid_elements = torch.sum(mask, (1, 2))
+        mask = mask.unsqueeze(1)  # For head axis broadcasting.
+        attn_sum = torch.sum(attn.masked_fill(mask == 0, 0.), (1, 2))
+        valid_elements = torch.sum(mask, (1, 2)).float()
         attn_per_edge = attn_sum / valid_elements
         return attn_per_edge
 
     def forward(self, x, meshes):
         """
-        x: [batch, features, edges, 1]
+        x: [batch, features, edges, 1] or [batch, features, edges]
         meshes: list of mesh objects
         """
+        singleton_dim = False
+        if x.ndim == 4:
+            singleton_dim = True
+            x = x.squeeze(3)
+
         if self.attn_max_dist is not None:
             dist_matrices = [m.all_pairs_shortest_path() for m in meshes]
             mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
         else:
             mask = self.__create_global_edge_mask(x, meshes)
         if random.random() < 0.05:
-            print("mean edges in attention mask:", mask.float().sum(1).mean().item())  # how many edges affect every edge in the attention?
+            print("mean edges in attention mask:",
+                  mask.float().sum(1).mean().item())  # how many edges affect every edge in the attention?
 
-        s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
+        s = x.transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
         s, attn = self.multi_head_attention.forward(s, s, s, mask)
         # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
-        x = s.transpose(1, 2).unsqueeze(3)
+        x = s.transpose(1, 2)
+        if singleton_dim:
+            x = x.unsqueeze(3)
         attn_per_edge = self.__attention_per_edge(attn, mask)
         return x, attn, attn_per_edge
 
