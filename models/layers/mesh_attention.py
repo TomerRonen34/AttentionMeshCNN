@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import random
 
 
 class MeshAttention(nn.Module):
@@ -67,7 +68,8 @@ class MeshAttention(nn.Module):
             mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
         else:
             mask = self.__create_global_edge_mask(x, meshes)
-        print("mean edges in attention mask:", mask.float().sum(1).mean().item())  # how many edges affect every edge in the attention?
+        if random.random() < 0.05:
+            print("mean edges in attention mask:", mask.float().sum(1).mean().item())  # how many edges affect every edge in the attention?
 
         s = x.squeeze(3).transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
         s, attn = self.multi_head_attention.forward(s, s, s, mask)
