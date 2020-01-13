@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from threading import Thread
 
 
 class MeshAttention(nn.Module):
-    def __init__(self, n_head, d_model, d_k, d_v, attn_max_dist=None, dropout=0.1):
+    def __init__(self, n_head, d_model, d_k, d_v, attn_max_dist=None, dropout=0.1, multi_thread=False):
         super().__init__()
+        self.__multi_thread = multi_thread
         self.attn_max_dist = attn_max_dist  # if None it is global attention
         self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
 
@@ -57,13 +59,25 @@ class MeshAttention(nn.Module):
         attn_per_edge = attn_sum / valid_elements
         return attn_per_edge
 
+    def __thread_apsp_action(self, i_mesh, mesh, dist_matrices):
+        dist_matrices[i_mesh] = mesh.all_pairs_shortest_path()
+
     def forward(self, x, meshes):
         """
         x: [batch, features, edges, 1]
         meshes: list of mesh objects
         """
         if self.attn_max_dist is not None:
-            dist_matrices = [m.all_pairs_shortest_path() for m in meshes]
+            if self.__multi_thread is not None:
+                apsp_threads = []
+                dist_matrices = [None] * len(meshes)
+                for i, mesh in enumerate(meshes):
+                    apsp_threads.append(Thread(target=self.__thread_apsp_action, args=(i, mesh, dist_matrices,)))
+                    apsp_threads[-1].start()
+                for th in apsp_threads:
+                    th.join()
+            else:
+                dist_matrices = [m.all_pairs_shortest_path() for m in meshes]
             mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
         else:
             mask = self.__create_global_edge_mask(x, meshes)
