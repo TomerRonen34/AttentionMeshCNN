@@ -291,9 +291,10 @@ class MeshEncoderDecoderWithAttention(nn.Module):
         unrolls = pools[:-1].copy()
         unrolls.reverse()
         self.decoder = MeshDecoder(unrolls, up_convs, blocks=blocks, transfer_data=transfer_data,
-                                   attn_n_heads=attn_n_heads,
-                                   attn_max_dist=attn_max_dist,
-                                   attn_dropout=attn_dropout)
+                                   # attn_n_heads=attn_n_heads,
+                                   # attn_max_dist=attn_max_dist,
+                                   # attn_dropout=attn_dropout)
+                                   )
 
     def forward(self, x, meshes):
         fe, before_pool = self.encoder((x, meshes))
@@ -450,9 +451,9 @@ class MeshEncoder(nn.Module):
                  attn_dropout=None,
                  prioritize_with_attention=None):
         if attn_n_heads is not None:
-            assert ((attn_dropout is not None) and (prioritize_with_attention is not None),
-                    "Must provide attn_n_heads, attn_dropout and prioritize_with_attention"
-                    "when using attention for encoder")
+            assert (attn_dropout is not None) and (prioritize_with_attention is not None), (
+                "Must provide attn_n_heads, attn_dropout and prioritize_with_attention"
+                "when using attention for encoder")
         super(MeshEncoder, self).__init__()
         self.fcs = None
         self.convs = []
@@ -527,8 +528,8 @@ class MeshDecoder(nn.Module):
                  attn_max_dist=None,
                  attn_dropout=None):
         if attn_n_heads is not None:
-            assert (attn_dropout is not None,
-                    "Must provide attn_n_heads and attn_dropout when using attention for decoder")
+            assert attn_dropout is not None, (
+                "Must provide attn_n_heads and attn_dropout when using attention for decoder")
 
         super(MeshDecoder, self).__init__()
         self.up_convs = []

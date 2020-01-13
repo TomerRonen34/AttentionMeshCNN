@@ -17,9 +17,12 @@ class MeshAttention(nn.Module):
         for mesh i with E actual edges, mask[i,:E,:E] = 1
         """
         n_batch, max_n_edges = x.shape[0], x.shape[2]
+        n_edges_per_mesh = [_mesh.edges_count for _mesh in meshes]
+        if all([n == max_n_edges for n in n_edges_per_mesh]):
+            return None  # equivalent to a mask of all 1s
+
         mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool, device=x.device)
-        for i_mesh in range(n_batch):
-            n_edges = meshes[i_mesh].edges_count
+        for i_mesh, n_edges in enumerate(n_edges_per_mesh):
             mask[i_mesh, :n_edges, :n_edges] = 1
         # TODO:  in shrec all meshes are always the same size, what happens in other datasets?
         # print("all same?", len(set([m.edges_count for m in meshes])) == 1,
@@ -73,9 +76,11 @@ class MeshAttention(nn.Module):
             mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
         else:
             mask = self.__create_global_edge_mask(x, meshes)
-        if random.random() < 0.05:
+        if mask is not None and random.random() < 0.05:
             print("mean edges in attention mask:",
-                  mask.float().sum(1).mean().item())  # how many edges affect every edge in the attention?
+                  mask.float().sum(1).mean().item(),
+                  "percentage of max_edges:",
+                  mask.float().mean().item())  # how many edges affect every edge in the attention?
 
         s = x.transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
         s, attn = self.multi_head_attention.forward(s, s, s, mask)

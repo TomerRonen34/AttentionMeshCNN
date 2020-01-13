@@ -2,7 +2,7 @@
 DATASET="human_seg"
 ARCH="meshunetwithattention"
 DATETIME=`date +%Y-%m-%d_%H-%M-%S` # "2020-01-10_16-51-01" #
-ADD_TO_NAME="_global"
+ADD_TO_NAME="_global_prioritize"
 NAME="${DATASET}_${ARCH}${ADD_TO_NAME}_${DATETIME}"
 
 LOGDIR="checkpoints/${NAME}"
@@ -24,6 +24,7 @@ python -u train.py \
 --lr 0.001 \
 --num_aug 20 \
 --slide_verts 0.2 \
+--prioritize_with_attention \
 
 #--continue_train \
 #--epoch_count 201 \
