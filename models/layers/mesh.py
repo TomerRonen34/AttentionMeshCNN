@@ -5,6 +5,7 @@ import numpy as np
 import os
 from models.layers.mesh_union import MeshUnion
 from models.layers.mesh_prepare import fill_mesh
+import warnings
 
 try:
     import lang_perf.cython_class as lp
@@ -12,6 +13,7 @@ try:
 except ImportError:
     import networkx as nx
     apsp_impl = "networkx"
+    warnings.warn("Couldn't compile lang_perf Cython code: using networkx backend for all_pairs_shortest_paths()")
 
 
 class Mesh:
