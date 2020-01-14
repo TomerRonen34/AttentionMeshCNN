@@ -25,6 +25,8 @@ python -u train.py \
 --num_aug 20 \
 --slide_verts 0.2 \
 --prioritize_with_attention \
+--niter 50 \
+--niter_decay 10 \
 
 #--continue_train \
 #--epoch_count 201 \

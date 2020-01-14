@@ -99,23 +99,41 @@ class MultiHeadAttention(nn.Module):
     by Yu-Hsiang Huang
     """
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1):
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, transform_values=True):
         super().__init__()
 
         self.attention_type = type
         self.n_head = n_head
         self.d_k = d_k
-        self.d_v = d_v
 
         self.w_qs = nn.Linear(d_model, n_head * d_k, bias=False)
         self.w_ks = nn.Linear(d_model, n_head * d_k, bias=False)
-        self.w_vs = nn.Linear(d_model, n_head * d_v, bias=False)
-        self.fc = nn.Linear(n_head * d_v, d_model, bias=False)
+        if transform_values:
+            self.d_v = d_v
+            self.w_vs = nn.Linear(d_model, n_head * d_v, bias=False)
+            self.fc = nn.Linear(n_head * d_v, d_model, bias=False)
+        else:
+            self.d_v = d_model
+            self.w_vs = lambda x: self.__repeat_single_axis(x, -1, n_head)
+            self.fc = lambda x: self.__average_head_results(x, n_head)
 
         self.attention = ScaledDotProductAttention(temperature=d_k ** 0.5)
 
         self.dropout = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
+
+    @staticmethod
+    def __repeat_single_axis(x, axis, n_rep):
+        rep_sizes = [1] * x.ndim
+        rep_sizes[axis] = n_rep
+        x_rep = x.repeat(rep_sizes)
+        return x_rep
+
+    @staticmethod
+    def __average_head_results(x, n_head):
+        shape = list(x.shape)[:-1] + [n_head, -1]
+        avg_x = x.view(shape).mean(-2)
+        return avg_x
 
     def forward(self, q, k, v, mask=None):
         d_k, d_v, n_head = self.d_k, self.d_v, self.n_head

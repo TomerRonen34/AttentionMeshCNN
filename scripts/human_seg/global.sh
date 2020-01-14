@@ -24,6 +24,8 @@ python -u train.py \
 --lr 0.001 \
 --num_aug 20 \
 --slide_verts 0.2 \
+--niter 50 \
+--niter_decay 10 \
 
 #--continue_train \
 #--epoch_count 201 \

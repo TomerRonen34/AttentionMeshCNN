@@ -25,8 +25,8 @@ python -u train.py \
 --num_aug 20 \
 --slide_verts 0.2 \
 --attn_max_dist 5 \
---niter 40 \
---niter_decay 0 \
+--niter 50 \
+--niter_decay 50 \
 
 #--continue_train \
 #--epoch_count 201 \
