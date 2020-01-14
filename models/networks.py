@@ -113,7 +113,9 @@ def define_classifier(input_nc, ncf, ninput_edges, nclasses, opt, gpu_ids, arch,
                                opt.attn_n_heads, nresblocks=opt.resblocks,
                                attn_max_dist=opt.attn_max_dist,
                                attn_dropout=opt.attn_dropout,
-                               prioritize_with_attention=opt.prioritize_with_attention)
+                               prioritize_with_attention=opt.prioritize_with_attention,
+                               attn_use_values_as_is=opt.attn_use_values_as_is,
+                               double_attention=opt.double_attention)
     elif arch == 'meshunet':
         down_convs = [input_nc] + ncf
         up_convs = ncf[::-1] + [nclasses]
@@ -155,20 +157,28 @@ class MeshAttentionNet(nn.Module):
                  nresblocks=3,
                  attn_max_dist=None,
                  attn_dropout=0.1,
-                 prioritize_with_attention=False):
+                 prioritize_with_attention=False,
+                 attn_use_values_as_is=False,
+                 double_attention=False):
         super(MeshAttentionNet, self).__init__()
+        if double_attention:
+            assert attn_use_values_as_is, ("must have attn_use_values_as_is=True if double_attention=True, "
+                                           "since the attention layer works on its own outputs")
         self.k = [nf0] + conv_res
         self.res = [input_res] + pool_res
         self.prioritize_with_attention = prioritize_with_attention
+        self.double_attention = double_attention
+        self.use_values_as_is = attn_use_values_as_is
         norm_args = get_norm_args(norm_layer, self.k[1:])
 
         for i, ki in enumerate(self.k[:-1]):
             setattr(self, 'conv{}'.format(i), MResConv(ki, self.k[i + 1], nresblocks))
             setattr(self, 'norm{}'.format(i), norm_layer(**norm_args[i]))
             setattr(self, 'attention{}'.format(i), MeshAttention(
-                attn_n_heads, self.k[i + 1], d_k=int(self.k[i + 1] / attn_n_heads),
-                d_v=int(self.k[i + 1] / attn_n_heads),
-                attn_max_dist=attn_max_dist, dropout=attn_dropout))
+                n_head=attn_n_heads, d_model=self.k[i + 1],
+                d_k=int(self.k[i + 1] / attn_n_heads), d_v=int(self.k[i + 1] / attn_n_heads),
+                attn_max_dist=attn_max_dist, dropout=attn_dropout,
+                use_values_as_is=attn_use_values_as_is))
             setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
 
         self.gp = torch.nn.AvgPool1d(self.res[-1])
@@ -181,7 +191,10 @@ class MeshAttentionNet(nn.Module):
         for i in range(len(self.k) - 1):
             x = getattr(self, 'conv{}'.format(i))(x, mesh)
             x = F.relu(getattr(self, 'norm{}'.format(i))(x))
-            x, attn, attn_per_edge = getattr(self, 'attention{}'.format(i))(x, mesh)
+            attention_layer = getattr(self, 'attention{}'.format(i))
+            x, attn, attn_per_edge = attention_layer(x, mesh)
+            if self.double_attention:
+                _, _, attn_per_edge = attention_layer(x, mesh)
             edge_priorities = attn_per_edge if self.prioritize_with_attention else None
             x = getattr(self, 'pool{}'.format(i))(x, mesh, edge_priorities)
 

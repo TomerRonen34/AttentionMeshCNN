@@ -5,10 +5,10 @@ import random
 
 
 class MeshAttention(nn.Module):
-    def __init__(self, n_head, d_model, d_k, d_v, attn_max_dist=None, dropout=0.1):
+    def __init__(self, n_head, d_model, d_k, d_v, attn_max_dist=None, dropout=0.1, use_values_as_is=False):
         super().__init__()
         self.attn_max_dist = attn_max_dist  # if None it is global attention
-        self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout)
+        self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v, dropout, use_values_as_is)
 
     @staticmethod
     def __create_global_edge_mask(x, meshes):
@@ -96,10 +96,11 @@ class MultiHeadAttention(nn.Module):
     """
     Multi-Head Attention module
     from https://github.com/jadore801120/attention-is-all-you-need-pytorch
-    by Yu-Hsiang Huang
+    by Yu-Hsiang Huang.
+    use_values_as_is is our addition.
     """
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, transform_values=True):
+    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, use_values_as_is=False):
         super().__init__()
 
         self.attention_type = type
@@ -108,7 +109,7 @@ class MultiHeadAttention(nn.Module):
 
         self.w_qs = nn.Linear(d_model, n_head * d_k, bias=False)
         self.w_ks = nn.Linear(d_model, n_head * d_k, bias=False)
-        if transform_values:
+        if not use_values_as_is:
             self.d_v = d_v
             self.w_vs = nn.Linear(d_model, n_head * d_v, bias=False)
             self.fc = nn.Linear(n_head * d_v, d_model, bias=False)
