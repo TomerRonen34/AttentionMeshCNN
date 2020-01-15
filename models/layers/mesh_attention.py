@@ -212,12 +212,12 @@ def create_rpr(base_rpr, dist_matrices):
     max_neighbor = base_rpr.shape[0] - 1
     d_k = base_rpr.shape[1]
     max_edges = max([dist_matrix.shape[0] for dist_matrix in dist_matrices])
-    rpr = torch.zeros(bs,max_edges,max_edges,d_k)
+    rpr = torch.zeros(bs, max_edges, max_edges, d_k, device=base_rpr.device)
     for i_mesh in range(bs):
         dist_matrix = dist_matrices[i_mesh]
         n_edges = dist_matrix.shape[0]
         dist_matrix[dist_matrix > max_neighbor] = max_neighbor
-        rpr[i_mesh, :n_edges, :n_edges,:] = base_rpr[dist_matrix, :]
+        rpr[i_mesh, :n_edges, :n_edges, :] = base_rpr[dist_matrix, :]
     return rpr
 
 # outputs_part1 = tf.matmul(weights, values)  # bs, hd, lq, dv

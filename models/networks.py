@@ -72,15 +72,22 @@ def get_scheduler(optimizer, opt):
 def init_weights(net, init_type, init_gain):
     def init_func(m):
         classname = m.__class__.__name__
+
+        weight = None
         if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
+            weight = m.weight
+        elif hasattr(m, 'base_rpr'):  # positional representations for attention module
+            weight = m.base_rpr
+
+        if weight is not None:
             if init_type == 'normal':
-                init.normal_(m.weight.data, 0.0, init_gain)
+                init.normal_(weight.data, 0.0, init_gain)
             elif init_type == 'xavier':
-                init.xavier_normal_(m.weight.data, gain=init_gain)
+                init.xavier_normal_(weight.data, gain=init_gain)
             elif init_type == 'kaiming':
-                init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
+                init.kaiming_normal_(weight.data, a=0, mode='fan_in')
             elif init_type == 'orthogonal':
-                init.orthogonal_(m.weight.data, gain=init_gain)
+                init.orthogonal_(weight.data, gain=init_gain)
             else:
                 raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
         elif classname.find('BatchNorm2d') != -1:
