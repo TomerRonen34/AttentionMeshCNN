@@ -227,10 +227,9 @@ class Mesh:
         neigh_d = {k: neighs for k, neighs in enumerate(self.gemm_edges.tolist())}
         G = nx.from_dict_of_lists(neigh_d)
         lengths = dict(nx.all_pairs_shortest_path_length(G, cutoff=cutoff))
-        res = np.zeros((self.edges_count, self.edges_count)) - 1
+        res = np.iinfo(np.int32).max * np.ones((self.edges_count, self.edges_count), dtype=np.int32)
         for i, row in enumerate(res):
             row[list(lengths[i].keys())] = list(lengths[i].values())
-        res = res.astype(int)
         return res
 
     def __all_pairs_shortest_path_cython(self, cutoff=None):
@@ -240,3 +239,16 @@ class Mesh:
         apsp_flat = s.all_pairs_shortest_path(cutoff)
         apsp = apsp_flat.astype(int).reshape(self.edges_count, self.edges_count) - 1
         return apsp
+
+    @staticmethod
+    def apsp_packed(tup):
+        mesh, cutoff = tup
+        return mesh.all_pairs_shortest_path(cutoff)
+
+    # @staticmethod
+    # def apsp_packed_gemm(tup):
+    #     gemm_edges, cutoff = tup
+    #     s = lp.Solver()
+    #     s.init(gemm_edges)
+    #     b = np.array(s.all_pairs_shortest_path(cutoff), dtype="int")
+    #     return b

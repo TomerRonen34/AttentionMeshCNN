@@ -44,8 +44,9 @@ class BaseOptions:
                                       'NOTE: attn_use_values_as_is must be True if you use this option, since the attention layer works on its own outputs.')
         self.parser.add_argument('--attn_use_positional_encoding', action='store_true',
                                  help='use relative positional encodings to add positional meaning to attention. '
-                                      'relative position is determined by the number of rings it takes to reach one edge from another, '
-                                      'or alternatively, the shortest path in a graph where every edge is a node and neighborhood '
+                                      'relative position is determined by the number "hops" it takes to reach one edge from another, '
+                                      'where hops are only allowed through convolutional neighbors (edges that share the same triangle). '
+                                      'mathematically, this is shortest path in a graph where every edge is a node and adjacency '
                                       'is determined in the same way as convolutional neighborhood.')
         self.parser.add_argument('--attn_max_relative_position', type=int, default=8,
                                  help='the maximal relative position for positional encoding. edges further aways than max_pos '

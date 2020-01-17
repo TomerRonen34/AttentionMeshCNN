@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 DATASET="cubes"
-ARCH="meshattentionnet"
-DATETIME=`date +%Y-%m-%d_%H-%M-%S` # "2020-01-10_20-56-12" #
-ADD_TO_NAME="_rpr_global_prioritize"
+ARCH="mconvnet"
+DATETIME=`date +%Y-%m-%d_%H-%M-%S` # "2020-01-10_16-51-01" #
+ADD_TO_NAME=""
+<<<<<<< Updated upstream
 NAME="${DATASET}_${ARCH}${ADD_TO_NAME}_${DATETIME}"
+=======
+NAME="cubes_mconvnet_2020-01-17_11-01-33"
+>>>>>>> Stashed changes
 
 LOGDIR="checkpoints/${NAME}"
 mkdir -p ${LOGDIR}
@@ -21,8 +25,13 @@ python -u train.py \
 --flip_edges 0.2 \
 --slide_verts 0.2 \
 --num_aug 20 \
---niter_decay 50 \
+--niter_decay 200 \
 --arch ${ARCH} \
---prioritize_with_attention \
---attn_use_positional_encoding \
---attn_max_relative_position 6 \
+<<<<<<< Updated upstream
+
+#--continue_train \
+#--epoch_count 201 \
+=======
+--continue_train \
+--epoch_count 36 \
+>>>>>>> Stashed changes
