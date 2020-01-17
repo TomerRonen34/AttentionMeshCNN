@@ -1,4 +1,5 @@
 from libcpp.vector cimport vector
+from libc.stdlib cimport malloc
 import numpy as np
 
 NOT_PROCESSED = -1
@@ -8,6 +9,7 @@ cdef extern from "cpp_solver.h":
         #Methods
         CppSolver(vector[vector[int]]*) except +
         void run_bfs(int, vector[int]*, int)
+        void run_apsp(char*, int)
         void compute_hash()
 
 
@@ -36,8 +38,11 @@ cdef class Solver:
         if cutoff is None:
             cutoff = -1
         cdef vector[vector[int]] distances
-        distances.resize(self.num_edges)
-        for v in range(self.num_edges):
-            self.cpp_solver.run_bfs(v, &distances[v], cutoff)
 
-        return distances
+        n = self.num_edges
+        cdef char* bla = <char *> malloc(n ** 2)
+
+        self.cpp_solver.run_apsp(bla, cutoff)
+
+        dists_flat = np.frombuffer(bla, dtype="uint8", count=n**2) - 1
+        return dists_flat

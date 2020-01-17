@@ -237,5 +237,6 @@ class Mesh:
         s = lp.Solver()
         s.init(self.gemm_edges)
 
-        b = np.array(s.all_pairs_shortest_path(cutoff), dtype="int")
-        return b
+        apsp_flat = s.all_pairs_shortest_path(cutoff)
+        apsp = apsp_flat.astype(int).reshape(self.edges_count, self.edges_count) - 1
+        return apsp

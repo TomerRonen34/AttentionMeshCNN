@@ -17,6 +17,7 @@
 #include <string.h>
 #include <unordered_map>
 #include <limits>
+#include <string>
 
 #include <ctime>
 
@@ -31,6 +32,7 @@ struct CppSolver {
   CppSolver(vvi* _graph);
 
   void run_bfs(int start, vi* scores, int cutoff = -1);
+  void run_apsp(char* _scores, int cutoff = -1);
   void compute_hash();
 private:
   vvi* graph;
