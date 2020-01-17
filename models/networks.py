@@ -198,9 +198,9 @@ class MeshAttentionNet(nn.Module):
             x = getattr(self, 'conv{}'.format(i))(x, mesh)
             x = F.relu(getattr(self, 'norm{}'.format(i))(x))
             attention_layer = getattr(self, 'attention{}'.format(i))
-            x, attn, attn_per_edge = attention_layer(x, mesh)
+            x, attn, attn_per_edge, dist_matrices = attention_layer(x, mesh)
             if self.double_attention:
-                _, _, attn_per_edge = attention_layer(x.detach(), mesh)
+                _, _, attn_per_edge, _ = attention_layer(x.detach(), mesh, dist_matrices)
             edge_priorities = attn_per_edge if self.prioritize_with_attention else None
             x = getattr(self, 'pool{}'.format(i))(x, mesh, edge_priorities)
 

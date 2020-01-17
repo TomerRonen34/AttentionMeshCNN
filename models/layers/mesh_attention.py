@@ -21,6 +21,45 @@ class MeshAttention(nn.Module):
             attn_use_positional_encoding,
             attn_max_relative_position)
 
+    def forward(self, x, meshes, dist_matrices=None):
+        """
+        x: [batch, features, edges, 1] or [batch, features, edges]
+        meshes: list of mesh objects
+        :param dist_matrices:  list of dist_matrix , each of size n_edges X n_edges.
+                               if None and it's needed, it's calculated inside the forward function
+        """
+        singleton_dim = False
+        if x.ndim == 4:
+            singleton_dim = True
+            x = x.squeeze(3)
+
+        if dist_matrices is None:
+            if self.attn_max_dist is not None or self.attn_use_positional_encoding:
+                pos_cutoff = self.attn_max_relative_position if self.attn_use_positional_encoding else None
+                local_cutoff = self.attn_max_dist
+                cutoff = max(filter(None, [pos_cutoff, local_cutoff]))
+                dist_matrices = [m.all_pairs_shortest_path(cutoff) for m in meshes]
+
+        if self.attn_max_dist is not None:
+            mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
+        else:
+            mask = self.__create_global_edge_mask(x, meshes)
+
+        if mask is not None and random.random() < 0.05:
+            print("mean edges in attention mask:",
+                  mask.float().sum(1).mean().item(),
+                  "percentage of max_edges:",
+                  mask.float().mean().item())  # how many edges affect every edge in the attention?
+
+        s = x.transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
+        s, attn = self.multi_head_attention.forward(s, s, s, mask, dist_matrices)
+        # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
+        x = s.transpose(1, 2)
+        if singleton_dim:
+            x = x.unsqueeze(3)
+        attn_per_edge = self.__attention_per_edge(attn, mask)
+        return x, attn, attn_per_edge, dist_matrices
+
     @staticmethod
     def __create_global_edge_mask(x, meshes):
         """
@@ -74,43 +113,6 @@ class MeshAttention(nn.Module):
         valid_elements = torch.sum(mask, (1, 2)).float()
         attn_per_edge = attn_sum / valid_elements
         return attn_per_edge
-
-    def forward(self, x, meshes):
-        """
-        x: [batch, features, edges, 1] or [batch, features, edges]
-        meshes: list of mesh objects
-        """
-        singleton_dim = False
-        if x.ndim == 4:
-            singleton_dim = True
-            x = x.squeeze(3)
-
-        dist_matrices = None
-        if self.attn_max_dist is not None or self.attn_use_positional_encoding:
-            pos_cutoff = self.attn_max_relative_position if self.attn_use_positional_encoding else None
-            local_cutoff = self.attn_max_dist
-            cutoff = max(filter(None, [pos_cutoff, local_cutoff]))
-            dist_matrices = [m.all_pairs_shortest_path(cutoff) for m in meshes]
-
-        if self.attn_max_dist is not None:
-            mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
-        else:
-            mask = self.__create_global_edge_mask(x, meshes)
-
-        if mask is not None and random.random() < 0.05:
-            print("mean edges in attention mask:",
-                  mask.float().sum(1).mean().item(),
-                  "percentage of max_edges:",
-                  mask.float().mean().item())  # how many edges affect every edge in the attention?
-
-        s = x.transpose(1, 2)  # s is sequence-like x: [batch, edges, features]
-        s, attn = self.multi_head_attention.forward(s, s, s, mask, dist_matrices)
-        # attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
-        x = s.transpose(1, 2)
-        if singleton_dim:
-            x = x.unsqueeze(3)
-        attn_per_edge = self.__attention_per_edge(attn, mask)
-        return x, attn, attn_per_edge
 
 
 class MultiHeadAttention(nn.Module):
