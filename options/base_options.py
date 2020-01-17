@@ -26,6 +26,7 @@ class BaseOptions:
         self.parser.add_argument('--num_groups', type=int, default=16, help='# of groups for groupnorm')
         self.parser.add_argument('--init_type', type=str, default='normal', help='network initialization [normal|xavier|kaiming|orthogonal]')
         self.parser.add_argument('--init_gain', type=float, default=0.02, help='scaling factor for normal, xavier and orthogonal.')
+        # attention params
         self.parser.add_argument('--attn_n_heads', type=int, default=4, help='number of heads for Multi Headed Attention')
         self.parser.add_argument('--prioritize_with_attention', action='store_true',
                                  help='if given, the priority queue for the pool operation is calculated from the attention softmax.'
@@ -41,6 +42,15 @@ class BaseOptions:
                                       'results of itself. default behavior is calculating the priorities from the results of applying the '
                                       'attention to the convolutional features. '
                                       'NOTE: attn_use_values_as_is must be True if you use this option, since the attention layer works on its own outputs.')
+        self.parser.add_argument('--attn_use_positional_encoding', action='store_true',
+                                 help='use relative positional encodings to add positional meaning to attention. '
+                                      'relative position is determined by the number of rings it takes to reach one edge from another, '
+                                      'or alternatively, the shortest path in a graph where every edge is a node and neighborhood '
+                                      'is determined in the same way as convolutional neighborhood.')
+        self.parser.add_argument('--attn_max_relative_position', type=int, default=8,
+                                 help='the maximal relative position for positional encoding. edges further aways than max_pos '
+                                      'are treated as if their position is max_pos. an 8-distance-neighborhood of an edge contains '
+                                      'about 150 edges.')
         # general params
         self.parser.add_argument('--num_threads', default=3, type=int, help='# threads for loading data')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
