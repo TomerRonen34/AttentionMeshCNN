@@ -51,12 +51,15 @@ class MeshAttention(nn.Module):
     @staticmethod
     def __attention_per_edge(attn, mask):
         """
+        This operation does not propagate gradients.
         attn: [batch, n_head, edges, edges]. last dim is softmaxed (sums to 1)
         mask: [batch, edges, edges]. which edges are valid (exist in mesh) and relevant to each other.
         """
+        attn = attn.detach()
         if mask is None:
             return torch.mean(attn, (1, 2))
 
+        mask = mask.detach()
         mask = mask.unsqueeze(1)  # For head axis broadcasting.
         attn_sum = torch.sum(attn.masked_fill(mask == 0, 0.), (1, 2))
         valid_elements = torch.sum(mask, (1, 2)).float()
