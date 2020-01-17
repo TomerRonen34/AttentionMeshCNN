@@ -13,7 +13,7 @@ class MeshAttention(nn.Module):
                  dropout=0.1, use_values_as_is=False,
                  attn_use_positional_encoding=False,
                  attn_max_relative_position=8,
-                 multiprocess_dist_matrices=True):
+                 multiprocess_dist_matrices=False):
         super().__init__()
         self.attn_max_dist = attn_max_dist  # if None it is global attention
         self.attn_use_positional_encoding = attn_use_positional_encoding

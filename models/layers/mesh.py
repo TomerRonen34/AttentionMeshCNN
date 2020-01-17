@@ -235,9 +235,8 @@ class Mesh:
     def __all_pairs_shortest_path_cython(self, cutoff=None):
         s = lp.Solver()
         s.init(self.gemm_edges)
-
         apsp_flat = s.all_pairs_shortest_path(cutoff)
-        apsp = apsp_flat.astype(int).reshape(self.edges_count, self.edges_count) - 1
+        apsp = apsp_flat.astype(int).reshape(self.edges_count, self.edges_count)
         return apsp
 
     @staticmethod
