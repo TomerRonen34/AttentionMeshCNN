@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from torch.nn.parameter import Parameter
 import random
 import numpy as np
+from time import time
 
 
 class MeshAttention(nn.Module):
@@ -226,16 +227,12 @@ class PositionalScaledDotProductAttention(nn.Module):
         else:
             attn1 = torch.matmul(q / self.temperature, k.transpose(2, 3))
 
-            # _q = q.unsqueeze(-2)  # q turns from [batch, heads, seq, d_k] to [batch, heads, seq, 1, d_k]
-            # _rpr = rpr.transpose(-1, -2).unsqueeze(1)  # rpr turns from [batch, seq, seq, d_k] to [batch, 1, seq, d_k, seq]
-            # attn2 = torch.matmul(_q / self.temperature, _rpr)  # attn2: [batch, heads, seq, 1, seq]
-            # attn2 = attn2.squeeze(-2)  # attn2: [batch, heads, seq, seq]
-
             q_dot_rpr = torch.matmul(q / self.temperature, base_rpr.transpose(0,1))
+            t0 = time()
             attn2 = resample_rpr_product(q_dot_rpr, dist_matrices)
+            t1 = time()
+            print(t1 - t0)
             print("i'm rpr-ing the heck out of this mesh!")
-
-            # attn4 = resample_rpr_product_2(q_dot_rpr, dist_matrices)
 
             attn = attn1 + attn2
 
@@ -267,32 +264,6 @@ def create_rpr(base_rpr, dist_matrices):
     return rpr
 
 
-def resample_rpr_product_2(q_dot_rpr, dist_matrices):
-    '''
-    :param base_rpr:  max_neighbours+1, dk
-    :param dist_matrices: list of dist_matrix , each of size nedges X nedges
-    :return:
-    '''
-    bs = len(dist_matrices)  # batch size
-    max_neighbor = q_dot_rpr.shape[-1] - 1
-    max_seq = max([dist_matrix.shape[0] for dist_matrix in dist_matrices])
-    resample_inds = max_neighbor * np.ones((bs, max_seq, max_seq), dtype=int)
-    for i_b in range(bs):
-        dist_matrix = dist_matrices[i_b]
-        n_edges = dist_matrix.shape[0]
-        dist_matrix[dist_matrix > max_neighbor] = max_neighbor
-        resample_inds[i_b, :n_edges, :n_edges] = dist_matrix
-
-    bs, n_heads, l_seq, _ = q_dot_rpr.shape
-    resampled_q_dot_rpr = torch.zeros(bs, n_heads, l_seq, l_seq, device=q_dot_rpr.device)
-    for i_b in range(bs):
-        for i_seq in range(l_seq):
-            _resampled = q_dot_rpr[i_b, :, i_seq, resample_inds[i_b, i_seq, :]]
-            resampled_q_dot_rpr[i_b, :, i_seq, :] = _resampled
-
-    return resampled_q_dot_rpr
-
-
 def resample_rpr_product(q_dot_rpr, dist_matrices):
     '''
     :param q_dot_rpr:  [batch, heads, seq, max_pos+1]
@@ -306,8 +277,9 @@ def resample_rpr_product(q_dot_rpr, dist_matrices):
         dist_matrix = dist_matrices[i_b]
         n_edges = dist_matrix.shape[0]
         dist_matrix[dist_matrix > max_neighbor] = max_neighbor
-        for i_edge in range(n_edges):
-            _resampled = q_dot_rpr[i_b, :, i_edge, dist_matrix[i_edge]]
-            resampled_q_dot_rpr[i_b, :, i_edge, :] = _resampled
+
+        row_inds = np.arange(n_edges)[:, None].repeat(n_edges, axis=1)
+        _resampled = q_dot_rpr[i_b, :, row_inds, dist_matrix]
+        resampled_q_dot_rpr[i_b, :, :n_edges, :n_edges] = _resampled
 
     return resampled_q_dot_rpr
