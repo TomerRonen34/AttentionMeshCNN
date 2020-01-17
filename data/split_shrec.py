@@ -39,8 +39,8 @@ def split_shrec(data_dir, out_dir, samples_per_split, n_splits):
 
 
 if __name__ == '__main__':
-    split_shrec(data_dir="/home/tomer/deploys/MeshCNN/datasets/shrec_16",
-                out_dir="/home/tomer/deploys/MeshCNN/datasets",
+    split_shrec(data_dir=osp.abspath("datasets/shrec_16"),
+                out_dir=osp.abspath("datasets"),
                 samples_per_split=10,
                 n_splits=3)
     # split_shrec(data_dir=r"C:\Users\user\dev\MeshCNN\datasets\shrec_16",
