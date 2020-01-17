@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import random
 import numpy as np
-
+from multiprocessing import Pool
 
 class MeshAttention(nn.Module):
     def __init__(self, n_head, d_model, d_k, d_v,
@@ -20,6 +20,7 @@ class MeshAttention(nn.Module):
             dropout, use_values_as_is,
             attn_use_positional_encoding,
             attn_max_relative_position)
+        self.my_pool = Pool()
 
     @staticmethod
     def __create_global_edge_mask(x, meshes):
@@ -80,6 +81,9 @@ class MeshAttention(nn.Module):
         x: [batch, features, edges, 1] or [batch, features, edges]
         meshes: list of mesh objects
         """
+        def shortest_paths_wrapper(mesh, cutoff):
+            return mesh.all_pairs_shortest_path(cutoff)
+
         singleton_dim = False
         if x.ndim == 4:
             singleton_dim = True
@@ -90,7 +94,8 @@ class MeshAttention(nn.Module):
             pos_cutoff = self.attn_max_relative_position if self.attn_use_positional_encoding else None
             local_cutoff = self.attn_max_dist
             cutoff = max(filter(None, [pos_cutoff, local_cutoff]))
-            dist_matrices = [m.all_pairs_shortest_path(cutoff) for m in meshes]
+            dist_matrices = self.my_pool.imap(shortest_paths_wrapper(cutoff=cutoff),meshes)
+            # dist_matrices = [m.all_pairs_shortest_path(cutoff) for m in meshes]
 
         if self.attn_max_dist is not None:
             mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
