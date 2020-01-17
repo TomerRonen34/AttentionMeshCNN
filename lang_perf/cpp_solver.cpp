@@ -1,6 +1,6 @@
 #include "cpp_solver.h"
 
-const int NOT_PROCESSED = -1;
+const int NOT_PROCESSED = std::numeric_limits<int>::max();
 
 
 CppSolver::CppSolver(vvi* _graph)
@@ -9,7 +9,7 @@ CppSolver::CppSolver(vvi* _graph)
 
 }
 
-void CppSolver::run_bfs(int start, vi* _scores) {
+void CppSolver::run_bfs(int start, vi* _scores, int cutoff) {
   vi& scores = *_scores;
   auto num_cities = graph->size();
   scores.assign(num_cities, NOT_PROCESSED);
@@ -26,7 +26,8 @@ void CppSolver::run_bfs(int start, vi* _scores) {
     for (const auto& next : (*graph)[now]) {
       if (scores[next] == NOT_PROCESSED) {
         scores[next] = value + 1;
-        queue.push_back(next);
+        if (cutoff == -1 || scores[next] < cutoff)
+            queue.push_back(next);
       }
     }
   }

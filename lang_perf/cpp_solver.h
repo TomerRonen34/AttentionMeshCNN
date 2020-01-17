@@ -16,6 +16,7 @@
 #include <deque>
 #include <string.h>
 #include <unordered_map>
+#include <limits>
 
 #include <ctime>
 
@@ -29,7 +30,7 @@ typedef vector <string> vs;
 struct CppSolver {
   CppSolver(vvi* _graph);
 
-  void run_bfs(int start, vi* scores);
+  void run_bfs(int start, vi* scores, int cutoff = -1);
   void compute_hash();
 private:
   vvi* graph;

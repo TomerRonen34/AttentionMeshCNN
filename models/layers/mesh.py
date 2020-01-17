@@ -79,11 +79,14 @@ class Mesh:
         self.pool_count += 1
         self.export()
 
-    def export(self, file=None, vcolor=None):
+    def export(self, file=None, vcolor=None, edge_priorities=None):
         if file is None:
             if self.export_folder:
                 filename, file_extension = os.path.splitext(self.filename)
-                file = '%s/%s_%d%s' % (self.export_folder, filename, self.pool_count, file_extension)
+                if edge_priorities is not None:
+                    file = '%s/%s_%d_colors%s' % (self.export_folder, filename, self.pool_count, file_extension)
+                else:
+                    file = '%s/%s_%d%s' % (self.export_folder, filename, self.pool_count, file_extension)
             else:
                 return
         faces = []
@@ -102,8 +105,13 @@ class Mesh:
             for face_id in range(len(faces) - 1):
                 f.write("f %d %d %d\n" % (faces[face_id][0] + 1, faces[face_id][1] + 1, faces[face_id][2] + 1))
             f.write("f %d %d %d" % (faces[-1][0] + 1, faces[-1][1] + 1, faces[-1][2] + 1))
-            for edge in self.edges:
-                f.write("\ne %d %d" % (new_indices[edge[0]] + 1, new_indices[edge[1]] + 1))
+            if edge_priorities is not None:
+                edge_priorities = edge_priorities / edge_priorities.max()
+                for edge, priority in zip(self.edges, edge_priorities):
+                    f.write("\ne %d %d %f" % (new_indices[edge[0]] + 1, new_indices[edge[1]] + 1, float(priority)))
+            else:
+                for edge in self.edges:
+                    f.write("\ne %d %d" % (new_indices[edge[0]] + 1, new_indices[edge[1]] + 1))
 
     def export_segments(self, segments):
         if not self.export_folder:
@@ -209,25 +217,25 @@ class Mesh:
     def get_edge_areas(self):
         return self.edge_areas
 
-    def all_pairs_shortest_path(self):
+    def all_pairs_shortest_path(self, cutoff=None):
         if apsp_impl == "cython":
-            return self.__all_pairs_shortest_path_cython()
+            return self.__all_pairs_shortest_path_cython(cutoff)
         elif apsp_impl == "networkx":
-            return self.__all_pairs_shortest_path_networkx()
+            return self.__all_pairs_shortest_path_networkx(cutoff)
 
-    def __all_pairs_shortest_path_networkx(self):
+    def __all_pairs_shortest_path_networkx(self, cutoff=None):
         neigh_d = {k: neighs for k, neighs in enumerate(self.gemm_edges.tolist())}
         G = nx.from_dict_of_lists(neigh_d)
-        lengths = dict(nx.all_pairs_shortest_path_length(G))
+        lengths = dict(nx.all_pairs_shortest_path_length(G, cutoff=cutoff))
         res = np.zeros((self.edges_count, self.edges_count)) - 1
         for i, row in enumerate(res):
             row[list(lengths[i].keys())] = list(lengths[i].values())
         res = res.astype(int)
         return res
 
-    def __all_pairs_shortest_path_cython(self):
+    def __all_pairs_shortest_path_cython(self, cutoff=None):
         s = lp.Solver()
         s.init(self.gemm_edges)
 
-        b = np.array(s.all_pairs_shortest_path(), dtype="int")
+        b = np.array(s.all_pairs_shortest_path(cutoff), dtype="int")
         return b

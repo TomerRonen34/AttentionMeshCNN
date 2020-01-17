@@ -945,6 +945,18 @@ static PyObject* __Pyx_PyInt_AddObjC(PyObject *op1, PyObject *op2, long intval, 
     (inplace ? PyNumber_InPlaceAdd(op1, op2) : PyNumber_Add(op1, op2))
 #endif
 
+/* RaiseDoubleKeywords.proto */
+static void __Pyx_RaiseDoubleKeywordsError(const char* func_name, PyObject* kw_name);
+
+/* ParseKeywords.proto */
+static int __Pyx_ParseOptionalKeywords(PyObject *kwds, PyObject **argnames[],\
+    PyObject *kwds2, PyObject *values[], Py_ssize_t num_pos_args,\
+    const char* function_name);
+
+/* RaiseArgTupleInvalid.proto */
+static void __Pyx_RaiseArgtupleInvalid(const char* func_name, int exact,
+    Py_ssize_t num_min, Py_ssize_t num_max, Py_ssize_t num_found);
+
 /* PyObjectCall.proto */
 #if CYTHON_COMPILING_IN_CPYTHON
 static CYTHON_INLINE PyObject* __Pyx_PyObject_Call(PyObject *func, PyObject *arg, PyObject *kw);
@@ -1181,6 +1193,7 @@ static const char __pyx_k_test[] = "__test__";
 static const char __pyx_k_numpy[] = "numpy";
 static const char __pyx_k_range[] = "range";
 static const char __pyx_k_Solver[] = "Solver";
+static const char __pyx_k_cutoff[] = "cutoff";
 static const char __pyx_k_import[] = "__import__";
 static const char __pyx_k_reduce[] = "__reduce__";
 static const char __pyx_k_getstate[] = "__getstate__";
@@ -1197,6 +1210,7 @@ static PyObject *__pyx_n_s_NOT_PROCESSED;
 static PyObject *__pyx_n_s_Solver;
 static PyObject *__pyx_n_s_TypeError;
 static PyObject *__pyx_n_s_cline_in_traceback;
+static PyObject *__pyx_n_s_cutoff;
 static PyObject *__pyx_n_s_enumerate;
 static PyObject *__pyx_n_s_getstate;
 static PyObject *__pyx_n_s_import;
@@ -1213,7 +1227,7 @@ static PyObject *__pyx_n_s_setstate;
 static PyObject *__pyx_n_s_setstate_cython;
 static PyObject *__pyx_n_s_test;
 static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_init(struct __pyx_obj_9lang_perf_12cython_class_Solver *__pyx_v_self, PyObject *__pyx_v_adj_lists); /* proto */
-static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_2all_pairs_shortest_path(struct __pyx_obj_9lang_perf_12cython_class_Solver *__pyx_v_self); /* proto */
+static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_2all_pairs_shortest_path(struct __pyx_obj_9lang_perf_12cython_class_Solver *__pyx_v_self, PyObject *__pyx_v_cutoff); /* proto */
 static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_4__reduce_cython__(CYTHON_UNUSED struct __pyx_obj_9lang_perf_12cython_class_Solver *__pyx_v_self); /* proto */
 static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_6__setstate_cython__(CYTHON_UNUSED struct __pyx_obj_9lang_perf_12cython_class_Solver *__pyx_v_self, CYTHON_UNUSED PyObject *__pyx_v___pyx_state); /* proto */
 static PyObject *__pyx_tp_new_9lang_perf_12cython_class_Solver(PyTypeObject *t, PyObject *a, PyObject *k); /*proto*/
@@ -1487,7 +1501,7 @@ static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_init(struct __pyx_ob
  *         self.graph = graph
  *         self.cpp_solver = new CppSolver(&self.graph)             # <<<<<<<<<<<<<<
  * 
- *     def all_pairs_shortest_path(self):
+ *     def all_pairs_shortest_path(self, cutoff=None):
  */
   try {
     __pyx_t_11 = new CppSolver((&__pyx_v_self->graph));
@@ -1527,25 +1541,68 @@ static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_init(struct __pyx_ob
 /* "lang_perf/cython_class.pyx":35
  *         self.cpp_solver = new CppSolver(&self.graph)
  * 
- *     def all_pairs_shortest_path(self):             # <<<<<<<<<<<<<<
- *         cdef vector[vector[int]] distances
- *         distances.resize(self.num_edges)
+ *     def all_pairs_shortest_path(self, cutoff=None):             # <<<<<<<<<<<<<<
+ *         if cutoff is None:
+ *             cutoff = -1
  */
 
 /* Python wrapper */
-static PyObject *__pyx_pw_9lang_perf_12cython_class_6Solver_3all_pairs_shortest_path(PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *unused); /*proto*/
-static PyObject *__pyx_pw_9lang_perf_12cython_class_6Solver_3all_pairs_shortest_path(PyObject *__pyx_v_self, CYTHON_UNUSED PyObject *unused) {
+static PyObject *__pyx_pw_9lang_perf_12cython_class_6Solver_3all_pairs_shortest_path(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds); /*proto*/
+static PyObject *__pyx_pw_9lang_perf_12cython_class_6Solver_3all_pairs_shortest_path(PyObject *__pyx_v_self, PyObject *__pyx_args, PyObject *__pyx_kwds) {
+  PyObject *__pyx_v_cutoff = 0;
   PyObject *__pyx_r = 0;
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("all_pairs_shortest_path (wrapper)", 0);
-  __pyx_r = __pyx_pf_9lang_perf_12cython_class_6Solver_2all_pairs_shortest_path(((struct __pyx_obj_9lang_perf_12cython_class_Solver *)__pyx_v_self));
+  {
+    static PyObject **__pyx_pyargnames[] = {&__pyx_n_s_cutoff,0};
+    PyObject* values[1] = {0};
+    values[0] = ((PyObject *)Py_None);
+    if (unlikely(__pyx_kwds)) {
+      Py_ssize_t kw_args;
+      const Py_ssize_t pos_args = PyTuple_GET_SIZE(__pyx_args);
+      switch (pos_args) {
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+      kw_args = PyDict_Size(__pyx_kwds);
+      switch (pos_args) {
+        case  0:
+        if (kw_args > 0) {
+          PyObject* value = __Pyx_PyDict_GetItemStr(__pyx_kwds, __pyx_n_s_cutoff);
+          if (value) { values[0] = value; kw_args--; }
+        }
+      }
+      if (unlikely(kw_args > 0)) {
+        if (unlikely(__Pyx_ParseOptionalKeywords(__pyx_kwds, __pyx_pyargnames, 0, values, pos_args, "all_pairs_shortest_path") < 0)) __PYX_ERR(0, 35, __pyx_L3_error)
+      }
+    } else {
+      switch (PyTuple_GET_SIZE(__pyx_args)) {
+        case  1: values[0] = PyTuple_GET_ITEM(__pyx_args, 0);
+        CYTHON_FALLTHROUGH;
+        case  0: break;
+        default: goto __pyx_L5_argtuple_error;
+      }
+    }
+    __pyx_v_cutoff = values[0];
+  }
+  goto __pyx_L4_argument_unpacking_done;
+  __pyx_L5_argtuple_error:;
+  __Pyx_RaiseArgtupleInvalid("all_pairs_shortest_path", 0, 0, 1, PyTuple_GET_SIZE(__pyx_args)); __PYX_ERR(0, 35, __pyx_L3_error)
+  __pyx_L3_error:;
+  __Pyx_AddTraceback("lang_perf.cython_class.Solver.all_pairs_shortest_path", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __Pyx_RefNannyFinishContext();
+  return NULL;
+  __pyx_L4_argument_unpacking_done:;
+  __pyx_r = __pyx_pf_9lang_perf_12cython_class_6Solver_2all_pairs_shortest_path(((struct __pyx_obj_9lang_perf_12cython_class_Solver *)__pyx_v_self), __pyx_v_cutoff);
 
   /* function exit code */
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_2all_pairs_shortest_path(struct __pyx_obj_9lang_perf_12cython_class_Solver *__pyx_v_self) {
+static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_2all_pairs_shortest_path(struct __pyx_obj_9lang_perf_12cython_class_Solver *__pyx_v_self, PyObject *__pyx_v_cutoff) {
   std::vector<std::vector<int> >  __pyx_v_distances;
   int __pyx_v_v;
   PyObject *__pyx_r = NULL;
@@ -1553,71 +1610,107 @@ static PyObject *__pyx_pf_9lang_perf_12cython_class_6Solver_2all_pairs_shortest_
   int __pyx_t_1;
   int __pyx_t_2;
   int __pyx_t_3;
-  PyObject *__pyx_t_4 = NULL;
+  int __pyx_t_4;
+  int __pyx_t_5;
+  int __pyx_t_6;
+  PyObject *__pyx_t_7 = NULL;
   __Pyx_RefNannySetupContext("all_pairs_shortest_path", 0);
+  __Pyx_INCREF(__pyx_v_cutoff);
 
-  /* "lang_perf/cython_class.pyx":37
- *     def all_pairs_shortest_path(self):
+  /* "lang_perf/cython_class.pyx":36
+ * 
+ *     def all_pairs_shortest_path(self, cutoff=None):
+ *         if cutoff is None:             # <<<<<<<<<<<<<<
+ *             cutoff = -1
+ *         cdef vector[vector[int]] distances
+ */
+  __pyx_t_1 = (__pyx_v_cutoff == Py_None);
+  __pyx_t_2 = (__pyx_t_1 != 0);
+  if (__pyx_t_2) {
+
+    /* "lang_perf/cython_class.pyx":37
+ *     def all_pairs_shortest_path(self, cutoff=None):
+ *         if cutoff is None:
+ *             cutoff = -1             # <<<<<<<<<<<<<<
+ *         cdef vector[vector[int]] distances
+ *         distances.resize(self.num_edges)
+ */
+    __Pyx_INCREF(__pyx_int_neg_1);
+    __Pyx_DECREF_SET(__pyx_v_cutoff, __pyx_int_neg_1);
+
+    /* "lang_perf/cython_class.pyx":36
+ * 
+ *     def all_pairs_shortest_path(self, cutoff=None):
+ *         if cutoff is None:             # <<<<<<<<<<<<<<
+ *             cutoff = -1
+ *         cdef vector[vector[int]] distances
+ */
+  }
+
+  /* "lang_perf/cython_class.pyx":39
+ *             cutoff = -1
  *         cdef vector[vector[int]] distances
  *         distances.resize(self.num_edges)             # <<<<<<<<<<<<<<
  *         for v in range(self.num_edges):
- *             self.cpp_solver.run_bfs(v, &distances[v])
+ *             self.cpp_solver.run_bfs(v, &distances[v], cutoff)
  */
   try {
     __pyx_v_distances.resize(__pyx_v_self->num_edges);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(0, 37, __pyx_L1_error)
+    __PYX_ERR(0, 39, __pyx_L1_error)
   }
 
-  /* "lang_perf/cython_class.pyx":38
+  /* "lang_perf/cython_class.pyx":40
  *         cdef vector[vector[int]] distances
  *         distances.resize(self.num_edges)
  *         for v in range(self.num_edges):             # <<<<<<<<<<<<<<
- *             self.cpp_solver.run_bfs(v, &distances[v])
+ *             self.cpp_solver.run_bfs(v, &distances[v], cutoff)
  * 
  */
-  __pyx_t_1 = __pyx_v_self->num_edges;
-  __pyx_t_2 = __pyx_t_1;
-  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
-    __pyx_v_v = __pyx_t_3;
+  __pyx_t_3 = __pyx_v_self->num_edges;
+  __pyx_t_4 = __pyx_t_3;
+  for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
+    __pyx_v_v = __pyx_t_5;
 
-    /* "lang_perf/cython_class.pyx":39
+    /* "lang_perf/cython_class.pyx":41
  *         distances.resize(self.num_edges)
  *         for v in range(self.num_edges):
- *             self.cpp_solver.run_bfs(v, &distances[v])             # <<<<<<<<<<<<<<
+ *             self.cpp_solver.run_bfs(v, &distances[v], cutoff)             # <<<<<<<<<<<<<<
  * 
  *         return distances
  */
-    __pyx_v_self->cpp_solver->run_bfs(__pyx_v_v, (&(__pyx_v_distances[__pyx_v_v])));
+    __pyx_t_6 = __Pyx_PyInt_As_int(__pyx_v_cutoff); if (unlikely((__pyx_t_6 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 41, __pyx_L1_error)
+    __pyx_v_self->cpp_solver->run_bfs(__pyx_v_v, (&(__pyx_v_distances[__pyx_v_v])), __pyx_t_6);
   }
 
-  /* "lang_perf/cython_class.pyx":41
- *             self.cpp_solver.run_bfs(v, &distances[v])
+  /* "lang_perf/cython_class.pyx":43
+ *             self.cpp_solver.run_bfs(v, &distances[v], cutoff)
  * 
  *         return distances             # <<<<<<<<<<<<<<
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_4 = __pyx_convert_vector_to_py_std_3a__3a_vector_3c_int_3e___(__pyx_v_distances); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 41, __pyx_L1_error)
-  __Pyx_GOTREF(__pyx_t_4);
-  __pyx_r = __pyx_t_4;
-  __pyx_t_4 = 0;
+  __pyx_t_7 = __pyx_convert_vector_to_py_std_3a__3a_vector_3c_int_3e___(__pyx_v_distances); if (unlikely(!__pyx_t_7)) __PYX_ERR(0, 43, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_7);
+  __pyx_r = __pyx_t_7;
+  __pyx_t_7 = 0;
   goto __pyx_L0;
 
   /* "lang_perf/cython_class.pyx":35
  *         self.cpp_solver = new CppSolver(&self.graph)
  * 
- *     def all_pairs_shortest_path(self):             # <<<<<<<<<<<<<<
- *         cdef vector[vector[int]] distances
- *         distances.resize(self.num_edges)
+ *     def all_pairs_shortest_path(self, cutoff=None):             # <<<<<<<<<<<<<<
+ *         if cutoff is None:
+ *             cutoff = -1
  */
 
   /* function exit code */
   __pyx_L1_error:;
-  __Pyx_XDECREF(__pyx_t_4);
+  __Pyx_XDECREF(__pyx_t_7);
   __Pyx_AddTraceback("lang_perf.cython_class.Solver.all_pairs_shortest_path", __pyx_clineno, __pyx_lineno, __pyx_filename);
   __pyx_r = NULL;
   __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_cutoff);
   __Pyx_XGIVEREF(__pyx_r);
   __Pyx_RefNannyFinishContext();
   return __pyx_r;
@@ -1873,7 +1966,7 @@ static void __pyx_tp_dealloc_9lang_perf_12cython_class_Solver(PyObject *o) {
 
 static PyMethodDef __pyx_methods_9lang_perf_12cython_class_Solver[] = {
   {"init", (PyCFunction)__pyx_pw_9lang_perf_12cython_class_6Solver_1init, METH_O, 0},
-  {"all_pairs_shortest_path", (PyCFunction)__pyx_pw_9lang_perf_12cython_class_6Solver_3all_pairs_shortest_path, METH_NOARGS, 0},
+  {"all_pairs_shortest_path", (PyCFunction)(void*)(PyCFunctionWithKeywords)__pyx_pw_9lang_perf_12cython_class_6Solver_3all_pairs_shortest_path, METH_VARARGS|METH_KEYWORDS, 0},
   {"__reduce_cython__", (PyCFunction)__pyx_pw_9lang_perf_12cython_class_6Solver_5__reduce_cython__, METH_NOARGS, 0},
   {"__setstate_cython__", (PyCFunction)__pyx_pw_9lang_perf_12cython_class_6Solver_7__setstate_cython__, METH_O, 0},
   {0, 0, 0, 0}
@@ -1990,6 +2083,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_Solver, __pyx_k_Solver, sizeof(__pyx_k_Solver), 0, 0, 1, 1},
   {&__pyx_n_s_TypeError, __pyx_k_TypeError, sizeof(__pyx_k_TypeError), 0, 0, 1, 1},
   {&__pyx_n_s_cline_in_traceback, __pyx_k_cline_in_traceback, sizeof(__pyx_k_cline_in_traceback), 0, 0, 1, 1},
+  {&__pyx_n_s_cutoff, __pyx_k_cutoff, sizeof(__pyx_k_cutoff), 0, 0, 1, 1},
   {&__pyx_n_s_enumerate, __pyx_k_enumerate, sizeof(__pyx_k_enumerate), 0, 0, 1, 1},
   {&__pyx_n_s_getstate, __pyx_k_getstate, sizeof(__pyx_k_getstate), 0, 0, 1, 1},
   {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
@@ -2009,7 +2103,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
 };
 static CYTHON_SMALL_CODE int __Pyx_InitCachedBuiltins(void) {
   __pyx_builtin_enumerate = __Pyx_GetBuiltinName(__pyx_n_s_enumerate); if (!__pyx_builtin_enumerate) __PYX_ERR(0, 24, __pyx_L1_error)
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 38, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_n_s_range); if (!__pyx_builtin_range) __PYX_ERR(0, 40, __pyx_L1_error)
   __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_n_s_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(1, 2, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
@@ -2560,6 +2654,148 @@ static PyObject* __Pyx_PyInt_AddObjC(PyObject *op1, PyObject *op2, CYTHON_UNUSED
     return (inplace ? PyNumber_InPlaceAdd : PyNumber_Add)(op1, op2);
 }
 #endif
+
+/* RaiseDoubleKeywords */
+static void __Pyx_RaiseDoubleKeywordsError(
+    const char* func_name,
+    PyObject* kw_name)
+{
+    PyErr_Format(PyExc_TypeError,
+        #if PY_MAJOR_VERSION >= 3
+        "%s() got multiple values for keyword argument '%U'", func_name, kw_name);
+        #else
+        "%s() got multiple values for keyword argument '%s'", func_name,
+        PyString_AsString(kw_name));
+        #endif
+}
+
+/* ParseKeywords */
+static int __Pyx_ParseOptionalKeywords(
+    PyObject *kwds,
+    PyObject **argnames[],
+    PyObject *kwds2,
+    PyObject *values[],
+    Py_ssize_t num_pos_args,
+    const char* function_name)
+{
+    PyObject *key = 0, *value = 0;
+    Py_ssize_t pos = 0;
+    PyObject*** name;
+    PyObject*** first_kw_arg = argnames + num_pos_args;
+    while (PyDict_Next(kwds, &pos, &key, &value)) {
+        name = first_kw_arg;
+        while (*name && (**name != key)) name++;
+        if (*name) {
+            values[name-argnames] = value;
+            continue;
+        }
+        name = first_kw_arg;
+        #if PY_MAJOR_VERSION < 3
+        if (likely(PyString_CheckExact(key)) || likely(PyString_Check(key))) {
+            while (*name) {
+                if ((CYTHON_COMPILING_IN_PYPY || PyString_GET_SIZE(**name) == PyString_GET_SIZE(key))
+                        && _PyString_Eq(**name, key)) {
+                    values[name-argnames] = value;
+                    break;
+                }
+                name++;
+            }
+            if (*name) continue;
+            else {
+                PyObject*** argname = argnames;
+                while (argname != first_kw_arg) {
+                    if ((**argname == key) || (
+                            (CYTHON_COMPILING_IN_PYPY || PyString_GET_SIZE(**argname) == PyString_GET_SIZE(key))
+                             && _PyString_Eq(**argname, key))) {
+                        goto arg_passed_twice;
+                    }
+                    argname++;
+                }
+            }
+        } else
+        #endif
+        if (likely(PyUnicode_Check(key))) {
+            while (*name) {
+                int cmp = (**name == key) ? 0 :
+                #if !CYTHON_COMPILING_IN_PYPY && PY_MAJOR_VERSION >= 3
+                    (PyUnicode_GET_SIZE(**name) != PyUnicode_GET_SIZE(key)) ? 1 :
+                #endif
+                    PyUnicode_Compare(**name, key);
+                if (cmp < 0 && unlikely(PyErr_Occurred())) goto bad;
+                if (cmp == 0) {
+                    values[name-argnames] = value;
+                    break;
+                }
+                name++;
+            }
+            if (*name) continue;
+            else {
+                PyObject*** argname = argnames;
+                while (argname != first_kw_arg) {
+                    int cmp = (**argname == key) ? 0 :
+                    #if !CYTHON_COMPILING_IN_PYPY && PY_MAJOR_VERSION >= 3
+                        (PyUnicode_GET_SIZE(**argname) != PyUnicode_GET_SIZE(key)) ? 1 :
+                    #endif
+                        PyUnicode_Compare(**argname, key);
+                    if (cmp < 0 && unlikely(PyErr_Occurred())) goto bad;
+                    if (cmp == 0) goto arg_passed_twice;
+                    argname++;
+                }
+            }
+        } else
+            goto invalid_keyword_type;
+        if (kwds2) {
+            if (unlikely(PyDict_SetItem(kwds2, key, value))) goto bad;
+        } else {
+            goto invalid_keyword;
+        }
+    }
+    return 0;
+arg_passed_twice:
+    __Pyx_RaiseDoubleKeywordsError(function_name, key);
+    goto bad;
+invalid_keyword_type:
+    PyErr_Format(PyExc_TypeError,
+        "%.200s() keywords must be strings", function_name);
+    goto bad;
+invalid_keyword:
+    PyErr_Format(PyExc_TypeError,
+    #if PY_MAJOR_VERSION < 3
+        "%.200s() got an unexpected keyword argument '%.200s'",
+        function_name, PyString_AsString(key));
+    #else
+        "%s() got an unexpected keyword argument '%U'",
+        function_name, key);
+    #endif
+bad:
+    return -1;
+}
+
+/* RaiseArgTupleInvalid */
+static void __Pyx_RaiseArgtupleInvalid(
+    const char* func_name,
+    int exact,
+    Py_ssize_t num_min,
+    Py_ssize_t num_max,
+    Py_ssize_t num_found)
+{
+    Py_ssize_t num_expected;
+    const char *more_or_less;
+    if (num_found < num_min) {
+        num_expected = num_min;
+        more_or_less = "at least";
+    } else {
+        num_expected = num_max;
+        more_or_less = "at most";
+    }
+    if (exact) {
+        more_or_less = "exactly";
+    }
+    PyErr_Format(PyExc_TypeError,
+                 "%.200s() takes %.8s %" CYTHON_FORMAT_SSIZE_T "d positional argument%.1s (%" CYTHON_FORMAT_SSIZE_T "d given)",
+                 func_name, more_or_less, num_expected,
+                 (num_expected == 1) ? "" : "s", num_found);
+}
 
 /* PyObjectCall */
 #if CYTHON_COMPILING_IN_CPYTHON

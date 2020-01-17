@@ -42,12 +42,16 @@ class MeshPool(nn.Module):
     def __pool_main(self, mesh_index):
         mesh = self.__meshes[mesh_index]
         if self.__edge_priorities is None:
-            queue = self.__build_l2_queue(self.__fe[mesh_index, :, :mesh.edges_count], mesh.edges_count)
+            # queue = self.__build_l2_queue(self.__fe[mesh_index, :, :mesh.edges_count], mesh.edges_count)
+            edge_priorities = torch.sum(self.__fe[mesh_index, :, :mesh.edges_count] *
+                                        self.__fe[mesh_index, :, :mesh.edges_count], 0)
         else:
-            queue = self.__build_priority_queue(self.__edge_priorities[mesh_index, :mesh.edges_count], mesh.edges_count)
-        # recycle = []
-        # last_queue_len = len(queue)
-        last_count = mesh.edges_count + 1
+            # queue = self.__build_priority_queue(self.__edge_priorities[mesh_index, :mesh.edges_count], mesh.edges_count)
+            edge_priorities = self.__edge_priorities[mesh_index, :mesh.edges_count]
+        queue = self.__build_priority_queue(edge_priorities, mesh.edges_count) ####
+
+        mesh.export(edge_priorities=edge_priorities)
+
         mask = np.ones(mesh.edges_count, dtype=np.bool)
         edge_groups = MeshUnion(mesh.edges_count, self.__fe.device)
         while mesh.edges_count > self.__out_target:

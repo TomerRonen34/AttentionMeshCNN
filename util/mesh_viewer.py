@@ -1,14 +1,14 @@
 import mpl_toolkits.mplot3d as a3
 import matplotlib.colors as colors
+import matplotlib.cm as cm
 import pylab as pl
 import numpy as np
+import os
 
 V = np.array
 r2h = lambda x: colors.rgb2hex(tuple(map(lambda y: y / 255., x)))
-surface_color = r2h((255, 230, 205))
+surface_color = r2h((225, 225, 225))
 edge_color = r2h((90, 90, 90))
-edge_colors = (r2h((15, 167, 175)), r2h((230, 81, 81)), r2h((142, 105, 252)), r2h((248, 235, 57)),
-               r2h((51, 159, 255)), r2h((225, 117, 231)), r2h((97, 243, 185)), r2h((161, 183, 196)))
 
 
 
@@ -50,31 +50,41 @@ def surfaces(mesh, plot):
     vtx = vs[faces]
     edgecolor = edge_color if not len(edges) else 'none'
     tri = a3.art3d.Poly3DCollection(vtx, facecolors=surface_color +'55', edgecolors=edgecolor,
-                                    linewidths=.5, linestyles='dashdot')
+                                    linewidths=.8)#, linestyles='dashdot')
     plot[0].add_collection3d(tri)
     return plot
 
 
+edges_values_map = "sqrt"  # sort/log2/sqrt/else - original values
+
+
 def segments(mesh, plot):
     vs, _, edges = mesh
-    for edge_c, edge_group in enumerate(edges):
-        for edge_idx in edge_group:
+    if edges_values_map == "sort":
+        for i, (_, edge_idx) in enumerate(sorted(edges, key=lambda x: x[0])):
             edge = vs[edge_idx]
-            line = a3.art3d.Line3DCollection([edge],  linewidths=.5, linestyles='dashdot')
-            line.set_color(edge_colors[edge_c % len(edge_colors)])
+            line = a3.art3d.Line3DCollection([edge], linewidths=.8)
+            line.set_color(cm.viridis((i+1) / len(edges)))
+            plot[0].add_collection3d(line)
+    else:
+        for (edge_c, edge_idx) in edges:
+            edge = vs[edge_idx]
+            line = a3.art3d.Line3DCollection([edge], linewidths=.8)
+            if edges_values_map == "sqrt":
+                line.set_color(cm.viridis(np.sqrt(edge_c)))
+            elif edges_values_map == "log2":
+                line.set_color(cm.viridis(np.log2(1 + edge_c)))
+            else:
+                line.set_color(cm.viridis(edge_c))
             plot[0].add_collection3d(line)
     return plot
 
 
-def plot_mesh(mesh, *whats, show=True, plot=None):
+def plot_mesh(mesh, *whats, plot=None, out_path=None):
     for what in [update_plot] + list(whats):
         plot = what(mesh, plot)
-    if show:
-        li = max(plot[1][1], plot[1][3], plot[1][5])
-        plot[0].auto_scale_xyz([0, li], [0, li], [0, li])
-        pl.tight_layout()
-        pl.show()
-    return plot
+    if out_path is not None:
+        pl.savefig(out_path)
 
 
 def parse_obje(obj_file, scale_by):
@@ -83,10 +93,7 @@ def parse_obje(obj_file, scale_by):
     edges = []
 
     def add_to_edges():
-        if edge_c >= len(edges):
-            for _ in range(len(edges), edge_c + 1):
-                edges.append([])
-        edges[edge_c].append(edge_v)
+        edges.append((edge_c, edge_v))
 
     def fix_vertices():
         nonlocal vs, scale_by
@@ -117,36 +124,37 @@ def parse_obje(obj_file, scale_by):
             elif splitted_line[0] == 'e':
                 if len(splitted_line) >= 4:
                     edge_v = [int(c) - 1 for c in splitted_line[1:-1]]
-                    edge_c = int(splitted_line[-1])
+                    edge_c = float(splitted_line[-1])
                     add_to_edges()
 
     vs = V(vs)
     fix_vertices()
     faces = V(faces, dtype=int)
-    edges = [V(c, dtype=int) for c in edges]
     return (vs, faces, edges), scale_by
 
 
-def view_meshes(*files, offset=.2):
-    plot = None
-    max_x = 0
+def view_meshes(args, files):
     scale = 0
     for file in files:
-        mesh, scale = parse_obje(file, scale)
-        max_x_current = mesh[0][:, 0].max()
-        mesh[0][:, 0] += max_x + offset
-        plot = plot_mesh(mesh, surfaces, segments, plot=plot, show=file == files[-1])
-        max_x += max_x_current + offset
+        in_file_path = os.path.join(args.indir, file)
+        out_file_path = os.path.splitext(os.path.join(args.outdir, file))[0] + ".jpg"
+        mesh, scale = parse_obje(in_file_path, scale)
+        plot_mesh(mesh, surfaces, segments, plot=None, out_path=out_file_path)
 
 
 if __name__=='__main__':
     import argparse
     parser = argparse.ArgumentParser("view meshes")
-    parser.add_argument('--files', nargs='+', default=['checkpoints/human_seg/meshes/shrec__14_0.obj',
-                                                       'checkpoints/human_seg/meshes/shrec__14_3.obj'], type=str,
-                        help="list of 1 or more .obj files")
+    parser.add_argument('--indir', default=None, type=str)
+    parser.add_argument('--outdir', default=None, type=str)
     args = parser.parse_args()
 
-    # view meshes
-    view_meshes(*args.files)
+    if args.indir is None or args.outdir is None:
+        print("wrong command line params")
+    else:
+        if not os.path.exists(args.outdir):
+            os.makedirs(args.outdir)
+        files = [file for file in os.listdir(args.indir) if file.endswith(".obj")]
+        # view meshes
+        view_meshes(args, files)
 
