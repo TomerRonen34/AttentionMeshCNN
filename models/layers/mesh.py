@@ -237,3 +237,16 @@ class Mesh:
         s.init(self.gemm_edges)
         b = np.array(s.all_pairs_shortest_path(cutoff), dtype="int")
         return b
+
+    @staticmethod
+    def apsp_packed(tup):
+        mesh, cutoff = tup
+        return mesh.all_pairs_shortest_path(cutoff)
+
+    # @staticmethod
+    # def apsp_packed_gemm(tup):
+    #     gemm_edges, cutoff = tup
+    #     s = lp.Solver()
+    #     s.init(gemm_edges)
+    #     b = np.array(s.all_pairs_shortest_path(cutoff), dtype="int")
+    #     return b

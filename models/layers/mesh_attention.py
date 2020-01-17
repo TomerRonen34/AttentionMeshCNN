@@ -3,16 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 import random
 import numpy as np
-from time import time
-
+from models.layers.mesh import Mesh
 from multiprocessing import Pool
+
 
 class MeshAttention(nn.Module):
     def __init__(self, n_head, d_model, d_k, d_v,
                  attn_max_dist=None,
                  dropout=0.1, use_values_as_is=False,
                  attn_use_positional_encoding=False,
-                 attn_max_relative_position=8):
+                 attn_max_relative_position=8,
+                 multiprocess_dist_matrices=True):
         super().__init__()
         self.attn_max_dist = attn_max_dist  # if None it is global attention
         self.attn_use_positional_encoding = attn_use_positional_encoding
@@ -22,7 +23,12 @@ class MeshAttention(nn.Module):
             dropout, use_values_as_is,
             attn_use_positional_encoding,
             attn_max_relative_position)
-        self.my_pool = Pool()
+
+        if multiprocess_dist_matrices:
+            self.pool = Pool()
+            self.map_func = self.pool.map
+        else:
+            self.map_func = lambda iterable, args_list: list(map(iterable, args_list))
 
     def forward(self, x, meshes, dist_matrices=None):
         """
@@ -31,9 +37,6 @@ class MeshAttention(nn.Module):
         :param dist_matrices:  list of dist_matrix , each of size n_edges X n_edges.
                                if None and it's needed, it's calculated inside the forward function
         """
-        def shortest_paths_wrapper(mesh, cutoff):
-            return mesh.all_pairs_shortest_path(cutoff)
-
         singleton_dim = False
         if x.ndim == 4:
             singleton_dim = True
@@ -44,19 +47,15 @@ class MeshAttention(nn.Module):
                 pos_cutoff = self.attn_max_relative_position if self.attn_use_positional_encoding else None
                 local_cutoff = self.attn_max_dist
                 cutoff = max(filter(None, [pos_cutoff, local_cutoff]))
-                # print(cutoff)
-                t0 = time()
-                dist_matrices = self.my_pool.imap(shortest_paths_wrapper(cutoff=cutoff), meshes)
-                # dist_matrices = [m.all_pairs_shortest_path(cutoff) for m in meshes]
-                t1 = time()
-                print(t1 - t0)
+                tups = [(mesh, cutoff) for mesh in meshes]
+                dist_matrices = self.map_func(Mesh.apsp_packed, tups)
 
         if self.attn_max_dist is not None:
             mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
         else:
             mask = self.__create_global_edge_mask(x, meshes)
 
-        if mask is not None and random.random() < 0.05:
+        if False and mask is not None and random.random() < 0.05:
             print("mean edges in attention mask:",
                   mask.float().sum(1).mean().item(),
                   "percentage of max_edges:",
