@@ -5,6 +5,7 @@ import random
 import numpy as np
 from time import time
 
+from multiprocessing import Pool
 
 class MeshAttention(nn.Module):
     def __init__(self, n_head, d_model, d_k, d_v,
@@ -21,6 +22,7 @@ class MeshAttention(nn.Module):
             dropout, use_values_as_is,
             attn_use_positional_encoding,
             attn_max_relative_position)
+        self.my_pool = Pool()
 
     def forward(self, x, meshes, dist_matrices=None):
         """
@@ -29,6 +31,9 @@ class MeshAttention(nn.Module):
         :param dist_matrices:  list of dist_matrix , each of size n_edges X n_edges.
                                if None and it's needed, it's calculated inside the forward function
         """
+        def shortest_paths_wrapper(mesh, cutoff):
+            return mesh.all_pairs_shortest_path(cutoff)
+
         singleton_dim = False
         if x.ndim == 4:
             singleton_dim = True
@@ -41,7 +46,8 @@ class MeshAttention(nn.Module):
                 cutoff = max(filter(None, [pos_cutoff, local_cutoff]))
                 # print(cutoff)
                 t0 = time()
-                dist_matrices = [m.all_pairs_shortest_path(cutoff) for m in meshes]
+                dist_matrices = self.my_pool.imap(shortest_paths_wrapper(cutoff=cutoff), meshes)
+                # dist_matrices = [m.all_pairs_shortest_path(cutoff) for m in meshes]
                 t1 = time()
                 print(t1 - t0)
 
