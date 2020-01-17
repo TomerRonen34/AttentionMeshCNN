@@ -72,22 +72,15 @@ def get_scheduler(optimizer, opt):
 def init_weights(net, init_type, init_gain):
     def init_func(m):
         classname = m.__class__.__name__
-
-        weight = None
         if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
-            weight = m.weight
-        elif hasattr(m, 'base_rpr'):  # positional representations for attention module
-            weight = m.base_rpr
-
-        if weight is not None:
             if init_type == 'normal':
-                init.normal_(weight.data, 0.0, init_gain)
+                init.normal_(m.weight.data, 0.0, init_gain)
             elif init_type == 'xavier':
-                init.xavier_normal_(weight.data, gain=init_gain)
+                init.xavier_normal_(m.weight.data, gain=init_gain)
             elif init_type == 'kaiming':
-                init.kaiming_normal_(weight.data, a=0, mode='fan_in')
+                init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
             elif init_type == 'orthogonal':
-                init.orthogonal_(weight.data, gain=init_gain)
+                init.orthogonal_(m.weight.data, gain=init_gain)
             else:
                 raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
         elif classname.find('BatchNorm2d') != -1:
@@ -122,7 +115,9 @@ def define_classifier(input_nc, ncf, ninput_edges, nclasses, opt, gpu_ids, arch,
                                attn_dropout=opt.attn_dropout,
                                prioritize_with_attention=opt.prioritize_with_attention,
                                attn_use_values_as_is=opt.attn_use_values_as_is,
-                               double_attention=opt.double_attention)
+                               double_attention=opt.double_attention,
+                               attn_use_positional_encoding=opt.attn_use_positional_encoding,
+                               attn_max_relative_position=opt.attn_max_relative_position)
     elif arch == 'meshunet':
         down_convs = [input_nc] + ncf
         up_convs = ncf[::-1] + [nclasses]
@@ -166,7 +161,9 @@ class MeshAttentionNet(nn.Module):
                  attn_dropout=0.1,
                  prioritize_with_attention=False,
                  attn_use_values_as_is=False,
-                 double_attention=False):
+                 double_attention=False,
+                 attn_use_positional_encoding=False,
+                 attn_max_relative_position=8):
         super(MeshAttentionNet, self).__init__()
         if double_attention:
             assert attn_use_values_as_is, ("must have attn_use_values_as_is=True if double_attention=True, "
@@ -185,7 +182,9 @@ class MeshAttentionNet(nn.Module):
                 n_head=attn_n_heads, d_model=self.k[i + 1],
                 d_k=int(self.k[i + 1] / attn_n_heads), d_v=int(self.k[i + 1] / attn_n_heads),
                 attn_max_dist=attn_max_dist, dropout=attn_dropout,
-                use_values_as_is=attn_use_values_as_is))
+                use_values_as_is=attn_use_values_as_is,
+            attn_use_positional_encoding=attn_use_positional_encoding,
+            attn_max_relative_position=attn_max_relative_position))
             setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
 
         self.gp = torch.nn.AvgPool1d(self.res[-1])

@@ -1,19 +1,25 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.nn.parameter import Parameter
 import random
 import numpy as np
 from time import time
 
 
 class MeshAttention(nn.Module):
-    def __init__(self, n_head, d_model, d_k, d_v, attn_max_dist=None,
-                 dropout=0.1, use_values_as_is=False, attn_positional_max=5):
+    def __init__(self, n_head, d_model, d_k, d_v,
+                 attn_max_dist=None,
+                 dropout=0.1, use_values_as_is=False,
+                 attn_use_positional_encoding=False,
+                 attn_max_relative_position=8):
         super().__init__()
         self.attn_max_dist = attn_max_dist  # if None it is global attention
-        self.multi_head_attention = MultiHeadAttention(n_head, d_model, d_k, d_v,
-                                                       dropout, use_values_as_is, attn_positional_max)
+        self.attn_use_positional_encoding = attn_use_positional_encoding
+        self.multi_head_attention = MultiHeadAttention(
+            n_head, d_model, d_k, d_v,
+            dropout, use_values_as_is,
+            attn_use_positional_encoding,
+            attn_max_relative_position)
 
     @staticmethod
     def __create_global_edge_mask(x, meshes):
@@ -79,7 +85,10 @@ class MeshAttention(nn.Module):
             singleton_dim = True
             x = x.squeeze(3)
 
-        dist_matrices = [m.all_pairs_shortest_path() for m in meshes]
+        dist_matrices = None
+        if self.attn_max_dist is not None or self.attn_use_positional_encoding:
+            dist_matrices = [m.all_pairs_shortest_path() for m in meshes]
+
         if self.attn_max_dist is not None:
             mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
         else:
@@ -101,6 +110,46 @@ class MeshAttention(nn.Module):
         return x, attn, attn_per_edge
 
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, max_pos, d_k):
+        super().__init__()
+        self.w_rpr = nn.Linear(d_k, max_pos + 1, bias=False)
+
+    def __call__(self, q, dist_matrices):
+        return self.forward(q, dist_matrices)
+
+    def forward(self, q, dist_matrices):
+        """
+        :param q:  [batch, heads, seq, d_k]
+        :param dist_matrices:  list of dist_matrix , each of size n_edges X nedges
+        :return: resampled_q_dot_rpr: [batch, heads, seq, seq]
+        """
+        q_dot_rpr = self.w_rpr(q)
+        attn_rpr = self.resample_rpr_product(q_dot_rpr, dist_matrices)
+        return attn_rpr
+
+    @staticmethod
+    def resample_rpr_product(q_dot_rpr, dist_matrices):
+        '''
+        :param q_dot_rpr:  [batch, heads, seq, max_pos+1]
+        :param dist_matrices: list of dist_matrix , each of size n_edges X nedges
+        :return: resampled_q_dot_rpr: [batch, heads, seq, seq]
+        '''
+        bs, n_heads, max_seq, _ = q_dot_rpr.shape
+        max_pos = q_dot_rpr.shape[-1] - 1
+        resampled_q_dot_rpr = torch.zeros(bs, n_heads, max_seq, max_seq, device=q_dot_rpr.device)
+        for i_b in range(bs):
+            dist_matrix = dist_matrices[i_b]
+            n_edges = dist_matrix.shape[0]
+            dist_matrix[dist_matrix > max_pos] = max_pos
+
+            row_inds = np.arange(n_edges)[:, None].repeat(n_edges, axis=1)
+            _resampled = q_dot_rpr[i_b, :, row_inds, dist_matrix]
+            resampled_q_dot_rpr[i_b, :, :n_edges, :n_edges] = _resampled
+
+        return resampled_q_dot_rpr
+
+
 class MultiHeadAttention(nn.Module):
     """
     Multi-Head Attention module
@@ -109,7 +158,10 @@ class MultiHeadAttention(nn.Module):
     use_values_as_is is our addition.
     """
 
-    def __init__(self, n_head, d_model, d_k, d_v, dropout=0.1, use_values_as_is=False, attn_positional_max=5):
+    def __init__(self, n_head, d_model, d_k, d_v,
+                 dropout=0.1, use_values_as_is=False,
+                 use_positional_encoding=False,
+                 max_relative_position=8):
         super().__init__()
 
         self.attention_type = type
@@ -127,11 +179,15 @@ class MultiHeadAttention(nn.Module):
             self.w_vs = lambda x: self.__repeat_single_axis(x, -1, n_head)
             self.fc = lambda x: self.__average_head_results(x, n_head)
 
-        self.attention = PositionalScaledDotProductAttention(temperature=d_k ** 0.5)
-
         self.dropout = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(d_model, eps=1e-6)
-        self.base_rpr = Parameter(torch.Tensor(attn_positional_max + 1, d_k))
+
+        positional_encoding = None
+        if use_positional_encoding:
+            positional_encoding = PositionalEncoding(max_relative_position, d_k)
+
+        self.attention = PositionalScaledDotProductAttention(temperature=d_k ** 0.5,
+                                                             positional_encoding=positional_encoding)
 
     @staticmethod
     def __repeat_single_axis(x, axis, n_rep):
@@ -150,11 +206,6 @@ class MultiHeadAttention(nn.Module):
         d_k, d_v, n_head = self.d_k, self.d_v, self.n_head
         sz_b, len_q, len_k, len_v = q.size(0), q.size(1), k.size(1), v.size(1)
 
-        rpr = None
-        if self.base_rpr is not None:
-            # rpr = create_rpr(self.base_rpr, dist_matrices)
-            rpr = None
-
         residual = q
         q = self.layer_norm(q)
 
@@ -170,7 +221,7 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             mask = mask.unsqueeze(1)  # For head axis broadcasting.
 
-        q, attn = self.attention(q, k, v, mask=mask, rpr=rpr, base_rpr=self.base_rpr, dist_matrices=dist_matrices)
+        q, attn = self.attention(q, k, v, mask=mask, dist_matrices=dist_matrices)
 
         # Transpose to move the head dimension back: b x lq x n x dv
         # Combine the last two dimensions to concatenate all the heads together: b x lq x (n*dv)
@@ -206,14 +257,15 @@ class ScaledDotProductAttention(nn.Module):
 
 
 class PositionalScaledDotProductAttention(nn.Module):
-    ''' Scaled Dot-Product Attention '''
+    ''' Scaled Dot-Product Attention with optional positional encodings '''
 
-    def __init__(self, temperature, attn_dropout=0.1):
+    def __init__(self, temperature, positional_encoding=None, attn_dropout=0.1):
         super().__init__()
         self.temperature = temperature
         self.dropout = nn.Dropout(attn_dropout)
+        self.positional_encoding = positional_encoding
 
-    def forward(self, q, k, v, mask=None, rpr=None, base_rpr=None, dist_matrices=None):
+    def forward(self, q, k, v, mask=None, dist_matrices=None):
         """
         q: [batch, heads, seq, d_k]  queries
         k: [batch, heads, seq, d_k]  keys
@@ -222,19 +274,12 @@ class PositionalScaledDotProductAttention(nn.Module):
                                 mask is important when using local attention, or when the meshes are of different sizes.
         rpr: [batch, seq, seq, d_k]  positional representations
         """
-        if rpr is None and base_rpr is None:
-            attn = torch.matmul(q / self.temperature, k.transpose(2, 3))  # b x n x lq x dv
+        attn_k = torch.matmul(q / self.temperature, k.transpose(2, 3))  # b x n x lq x dv
+        if self.positional_encoding is None:
+            attn = attn_k
         else:
-            attn1 = torch.matmul(q / self.temperature, k.transpose(2, 3))
-
-            q_dot_rpr = torch.matmul(q / self.temperature, base_rpr.transpose(0,1))
-            t0 = time()
-            attn2 = resample_rpr_product(q_dot_rpr, dist_matrices)
-            t1 = time()
-            print(t1 - t0)
-            print("i'm rpr-ing the heck out of this mesh!")
-
-            attn = attn1 + attn2
+            attn_rpr = self.positional_encoding(q / self.temperature, dist_matrices)
+            attn = attn_k + attn_rpr
 
         if mask is not None:
             attn = attn.masked_fill(mask == 0, -1e9)
@@ -242,44 +287,3 @@ class PositionalScaledDotProductAttention(nn.Module):
         attn = self.dropout(F.softmax(attn, dim=-1))
         output = torch.matmul(attn, v)
         return output, attn
-
-
-def create_rpr(base_rpr, dist_matrices):
-    '''
-
-    :param base_rpr:  max_neighbours+1, dk
-    :param dist_matrices: list of dist_matrix , each of size nedges X nedges
-    :return:
-    '''
-    bs = len(dist_matrices)  # batch size
-    max_neighbor = base_rpr.shape[0] - 1
-    d_k = base_rpr.shape[1]
-    max_edges = max([dist_matrix.shape[0] for dist_matrix in dist_matrices])
-    rpr = torch.zeros(bs, max_edges, max_edges, d_k, device=base_rpr.device)
-    for i_mesh in range(bs):
-        dist_matrix = dist_matrices[i_mesh]
-        n_edges = dist_matrix.shape[0]
-        dist_matrix[dist_matrix > max_neighbor] = max_neighbor
-        rpr[i_mesh, :n_edges, :n_edges, :] = base_rpr[dist_matrix, :]
-    return rpr
-
-
-def resample_rpr_product(q_dot_rpr, dist_matrices):
-    '''
-    :param q_dot_rpr:  [batch, heads, seq, max_pos+1]
-    :param dist_matrices: list of dist_matrix , each of size nedges X nedges
-    :return: resampled_q_dot_rpr: [batch, heads, seq, seq]
-    '''
-    bs, n_heads, max_seq, _ = q_dot_rpr.shape
-    max_neighbor = q_dot_rpr.shape[-1] - 1
-    resampled_q_dot_rpr = torch.zeros(bs, n_heads, max_seq, max_seq, device=q_dot_rpr.device)
-    for i_b in range(bs):
-        dist_matrix = dist_matrices[i_b]
-        n_edges = dist_matrix.shape[0]
-        dist_matrix[dist_matrix > max_neighbor] = max_neighbor
-
-        row_inds = np.arange(n_edges)[:, None].repeat(n_edges, axis=1)
-        _resampled = q_dot_rpr[i_b, :, row_inds, dist_matrix]
-        resampled_q_dot_rpr[i_b, :, :n_edges, :n_edges] = _resampled
-
-    return resampled_q_dot_rpr

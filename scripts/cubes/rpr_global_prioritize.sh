@@ -24,3 +24,5 @@ python -u train.py \
 --niter_decay 50 \
 --arch ${ARCH} \
 --prioritize_with_attention \
+--attn_use_positional_encoding \
+--attn_max_relative_position 6 \
