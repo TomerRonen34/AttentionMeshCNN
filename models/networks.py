@@ -183,8 +183,8 @@ class MeshAttentionNet(nn.Module):
                 d_k=int(self.k[i + 1] / attn_n_heads), d_v=int(self.k[i + 1] / attn_n_heads),
                 attn_max_dist=attn_max_dist, dropout=attn_dropout,
                 use_values_as_is=attn_use_values_as_is,
-            attn_use_positional_encoding=attn_use_positional_encoding,
-            attn_max_relative_position=attn_max_relative_position))
+                attn_use_positional_encoding=attn_use_positional_encoding,
+                attn_max_relative_position=attn_max_relative_position))
             setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
 
         self.gp = torch.nn.AvgPool1d(self.res[-1])
