@@ -222,6 +222,7 @@ class Mesh:
         res = np.zeros((self.edges_count, self.edges_count)) - 1
         for i, row in enumerate(res):
             row[list(lengths[i].keys())] = list(lengths[i].values())
+        res = res.astype(int)
         return res
 
     def __all_pairs_shortest_path_cython(self):

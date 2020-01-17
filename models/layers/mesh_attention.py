@@ -88,7 +88,7 @@ class MeshAttention(nn.Module):
         x = s.transpose(1, 2)
         if singleton_dim:
             x = x.unsqueeze(3)
-        attn_per_edge = self.__attention_per_edge(attn, mask)
+        attn_per_edge = self.__attention_per_edge(attn.detach(), mask.detach())
         return x, attn, attn_per_edge
 
 
