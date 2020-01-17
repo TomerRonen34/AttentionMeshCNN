@@ -43,7 +43,4 @@ if __name__ == '__main__':
                 out_dir=osp.abspath("datasets"),
                 samples_per_split=10,
                 n_splits=3)
-    # split_shrec(data_dir=r"C:\Users\user\dev\MeshCNN\datasets\shrec_16",
-    #             out_dir=r"C:\Users\user\dev\MeshCNN\datasets",
-    #             samples_per_split=10,
-    #             n_splits=3)
+

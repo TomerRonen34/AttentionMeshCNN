@@ -201,7 +201,6 @@ class MeshAttentionNet(nn.Module):
             attention_layer = getattr(self, 'attention{}'.format(i))
             x, attn, attn_per_edge = attention_layer(x, mesh)
             if self.double_attention:
-                print("double detach")
                 _, _, attn_per_edge = attention_layer(x.detach(), mesh)
             edge_priorities = attn_per_edge if self.prioritize_with_attention else None
             x = getattr(self, 'pool{}'.format(i))(x, mesh, edge_priorities)
