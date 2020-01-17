@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import random
 import numpy as np
+from time import time
 
 
 class MeshAttention(nn.Module):
@@ -38,7 +39,11 @@ class MeshAttention(nn.Module):
                 pos_cutoff = self.attn_max_relative_position if self.attn_use_positional_encoding else None
                 local_cutoff = self.attn_max_dist
                 cutoff = max(filter(None, [pos_cutoff, local_cutoff]))
+                # print(cutoff)
+                t0 = time()
                 dist_matrices = [m.all_pairs_shortest_path(cutoff) for m in meshes]
+                t1 = time()
+                print(t1 - t0)
 
         if self.attn_max_dist is not None:
             mask = self.__create_local_edge_mask(x, meshes, self.attn_max_dist, dist_matrices)
