@@ -1,5 +1,5 @@
 from libcpp.vector cimport vector
-from libc.stdlib cimport malloc
+from libc.stdlib cimport malloc, free
 import numpy as np
 
 NOT_PROCESSED = -1
@@ -37,12 +37,12 @@ cdef class Solver:
     def all_pairs_shortest_path(self, cutoff=None):
         if cutoff is None:
             cutoff = -1
-        cdef vector[vector[int]] distances
 
         n = self.num_edges
-        cdef char* bla = <char *> malloc(n ** 2)
+        cdef char* bla = <char *> malloc(n ** 3)
 
         self.cpp_solver.run_apsp(bla, cutoff)
 
         dists_flat = np.frombuffer(bla, dtype="uint8", count=n**2) - 1
+        free(bla)
         return dists_flat
