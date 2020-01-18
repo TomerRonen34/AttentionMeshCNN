@@ -39,10 +39,10 @@ cdef class Solver:
             cutoff = -1
 
         n = self.num_edges
-        cdef char* bla = <char *> malloc(n ** 3)
+        cdef char* apsp_buff = <char *> malloc(n ** 2)
 
-        self.cpp_solver.run_apsp(bla, cutoff)
+        self.cpp_solver.run_apsp(apsp_buff, cutoff)
 
-        dists_flat = np.frombuffer(bla, dtype="uint8", count=n**2) - 1
+        dists_flat = np.frombuffer(apsp_buff, dtype="uint8", count=n**2) - 1
         free(bla)
         return dists_flat
