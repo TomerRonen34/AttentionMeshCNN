@@ -11,7 +11,7 @@ CppSolver::CppSolver(vvi* _graph)
 
 void CppSolver::run_apsp(char* scores, int cutoff) {
     auto n = graph->size();
-    std::memset(scores, 255, n * n);
+    memset(scores, 255, n * n);
 
     unsigned long long offset = 0;
     for (int start = 0; start < n; start++) {
