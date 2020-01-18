@@ -258,16 +258,21 @@ class PositionalEncoding(nn.Module):
         '''
         bs, n_heads, max_seq, _ = q_dot_rpr.shape
         max_pos = q_dot_rpr.shape[-1] - 1
-        resampled_q_dot_rpr = torch.zeros(bs, n_heads, max_seq, max_seq, device=q_dot_rpr.device)
-        for i_b in range(bs):
-            dist_matrix = dist_matrices[i_b]
-            n_edges = dist_matrix.shape[0]
-            dist_matrix[dist_matrix > max_pos] = max_pos
 
-            row_inds = np.arange(n_edges)[:, None].repeat(n_edges, axis=1)
-            _resampled = q_dot_rpr[i_b, :, row_inds, dist_matrix]
-            resampled_q_dot_rpr[i_b, :, :n_edges, :n_edges] = _resampled
+        seq_lens = np.array([d.shape[0] for d in dist_matrices])
+        if (seq_lens == max_seq).all():
+            pos_inds = np.stack(dist_matrices)
+        else:
+            pos_inds = np.ones((bs, max_seq, max_seq), dtype=np.int32) * np.iinfo(np.int32).max
+            for i_b in range(bs):
+                dist_matrix = dist_matrices[i_b]
+                n_edges = dist_matrix.shape[0]
+                pos_inds[i_b, :n_edges, :n_edges] = dist_matrix
 
+        pos_inds[pos_inds > max_pos] = max_pos
+        batch_inds = np.arange(bs)[:, None, None]
+        edge_inds = np.arange(max_seq)[None, :, None]
+        resampled_q_dot_rpr = q_dot_rpr[batch_inds, :, edge_inds, pos_inds].permute(0, 3, 1, 2)
         return resampled_q_dot_rpr
 
 

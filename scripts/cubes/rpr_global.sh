@@ -23,7 +23,7 @@ python -u train.py \
 --slide_verts 0.2 \
 --num_aug 20 \
 --niter 50 \
---niter_decay 150 \
+--niter_decay 50 \
 --prioritize_with_attention \
 --attn_use_values_as_is \
 --double_attention \
