@@ -44,5 +44,5 @@ cdef class Solver:
         self.cpp_solver.run_apsp(apsp_buff, cutoff)
 
         dists_flat = np.frombuffer(apsp_buff, dtype="uint8", count=n**2) - 1
-        free(bla)
+        free(apsp_buff)
         return dists_flat
