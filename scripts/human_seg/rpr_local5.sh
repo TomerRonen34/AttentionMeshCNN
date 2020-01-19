@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-DATASET="cubes"
-ARCH="meshattentionnet"
+DATASET="human_seg"
+ARCH="meshunetwithattention"
 DATETIME=`date +%Y-%m-%d_%H-%M-%S`
-ADD_TO_NAME="_rpr_global"
+ADD_TO_NAME="_rpr_local5"
 NAME="${DATASET}_${ARCH}${ADD_TO_NAME}_${DATETIME}"
 
 LOGDIR="checkpoints/${NAME}"
@@ -15,21 +15,20 @@ python -u train.py \
 --dataroot datasets/${DATASET} \
 --name ${NAME} \
 --arch ${ARCH} \
---ncf 64 128 256 256 \
---pool_res 600 450 300 180 \
---norm group \
---resblocks 1 \
---flip_edges 0.2 \
---slide_verts 0.2 \
+--dataset_mode segmentation \
+--ncf 32 64 128 256 \
+--ninput_edges 2250 \
+--pool_res 1800 1350 600 \
+--resblocks 3 \
+--batch_size 12 \
+--lr 0.001 \
 --num_aug 20 \
+--slide_verts 0.2 \
 --niter 50 \
 --niter_decay 50 \
 --prioritize_with_attention \
 --attn_use_values_as_is \
 --double_attention \
 --attn_use_positional_encoding \
---attn_max_relative_position 6 \
-
- #--continue_train \
- #--which_epoch 4 \
- #--epoch_count 5 \
+--attn_max_relative_position 5 \
+--attn_max_dist 5 \

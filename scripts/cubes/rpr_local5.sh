@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 DATASET="cubes"
 ARCH="meshattentionnet"
-DATETIME=`date +%Y-%m-%d_%H-%M-%S` # "2020-01-10_20-56-12" #
+DATETIME=`date +%Y-%m-%d_%H-%M-%S`
 ADD_TO_NAME="_rpr_local5"
 NAME="${DATASET}_${ARCH}${ADD_TO_NAME}_${DATETIME}"
 
@@ -30,3 +30,8 @@ python -u train.py \
 --attn_max_dist 5 \
 --attn_use_positional_encoding \
 --attn_max_relative_position 5 \
+
+# --continue_train \
+# --which_epoch 9 \
+# --epoch_count 10 \
+

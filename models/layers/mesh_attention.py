@@ -10,19 +10,20 @@ from multiprocessing import Pool
 class MeshAttention(nn.Module):
     def __init__(self, n_head, d_model, d_k, d_v,
                  attn_max_dist=None,
-                 dropout=0.1, use_values_as_is=False,
-                 attn_use_positional_encoding=False,
-                 attn_max_relative_position=8,
+                 dropout=0.1,
+                 use_values_as_is=False,
+                 use_positional_encoding=False,
+                 max_relative_position=8,
                  multiprocess_dist_matrices=False):
         super().__init__()
         self.attn_max_dist = attn_max_dist  # if None it is global attention
-        self.attn_use_positional_encoding = attn_use_positional_encoding
-        self.attn_max_relative_position = attn_max_relative_position
+        self.use_positional_encoding = use_positional_encoding
+        self.max_relative_position = max_relative_position
         self.multi_head_attention = MultiHeadAttention(
             n_head, d_model, d_k, d_v,
             dropout, use_values_as_is,
-            attn_use_positional_encoding,
-            attn_max_relative_position)
+            use_positional_encoding,
+            max_relative_position)
 
         if multiprocess_dist_matrices:
             self.pool = Pool()
@@ -43,8 +44,8 @@ class MeshAttention(nn.Module):
             x = x.squeeze(3)
 
         if dist_matrices is None:
-            if self.attn_max_dist is not None or self.attn_use_positional_encoding:
-                pos_cutoff = self.attn_max_relative_position if self.attn_use_positional_encoding else None
+            if self.attn_max_dist is not None or self.use_positional_encoding:
+                pos_cutoff = self.max_relative_position if self.use_positional_encoding else None
                 local_cutoff = self.attn_max_dist
                 cutoff = max(filter(None, [pos_cutoff, local_cutoff]))
                 tups = [(mesh, cutoff) for mesh in meshes]
@@ -84,7 +85,6 @@ class MeshAttention(nn.Module):
         mask = torch.zeros(n_batch, max_n_edges, max_n_edges, dtype=torch.bool, device=x.device)
         for i_mesh, n_edges in enumerate(n_edges_per_mesh):
             mask[i_mesh, :n_edges, :n_edges] = 1
-        # TODO:  in shrec all meshes are always the same size, what happens in other datasets?
         # print("all same?", len(set([m.edges_count for m in meshes])) == 1,
         #       "| mask full?", torch.all(mask).item(),
         #       "| max edges:", max_n_edges,

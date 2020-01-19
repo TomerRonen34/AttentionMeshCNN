@@ -133,7 +133,11 @@ def define_classifier(input_nc, ncf, ninput_edges, nclasses, opt, gpu_ids, arch,
                                               attn_n_heads=opt.attn_n_heads,
                                               attn_max_dist=opt.attn_max_dist,
                                               attn_dropout=opt.attn_dropout,
-                                              prioritize_with_attention=opt.prioritize_with_attention)
+                                              prioritize_with_attention=opt.prioritize_with_attention,
+                                              attn_use_values_as_is=opt.attn_use_values_as_is,
+                                              double_attention=opt.double_attention,
+                                              attn_use_positional_encoding=opt.attn_use_positional_encoding,
+                                              attn_max_relative_position=opt.attn_max_relative_position)
     else:
         raise NotImplementedError('Encoder model name [%s] is not recognized' % arch)
     return init_net(net, init_type, init_gain, gpu_ids)
@@ -183,8 +187,8 @@ class MeshAttentionNet(nn.Module):
                 d_k=int(self.k[i + 1] / attn_n_heads), d_v=int(self.k[i + 1] / attn_n_heads),
                 attn_max_dist=attn_max_dist, dropout=attn_dropout,
                 use_values_as_is=attn_use_values_as_is,
-                attn_use_positional_encoding=attn_use_positional_encoding,
-                attn_max_relative_position=attn_max_relative_position))
+                use_positional_encoding=attn_use_positional_encoding,
+                max_relative_position=attn_max_relative_position))
             setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
 
         self.gp = torch.nn.AvgPool1d(self.res[-1])
@@ -299,21 +303,25 @@ class MeshEncoderDecoderWithAttention(nn.Module):
                  attn_n_heads=None,  # d_k, d_v,
                  attn_max_dist=None,
                  attn_dropout=None,
-                 prioritize_with_attention=None):
+                 prioritize_with_attention=None,
+                 attn_use_values_as_is=None,
+                 double_attention=None,
+                 attn_use_positional_encoding=None,
+                 attn_max_relative_position=None):
         super().__init__()
         self.transfer_data = transfer_data
         self.encoder = MeshEncoder(pools, down_convs, blocks=blocks,
                                    attn_n_heads=attn_n_heads,
                                    attn_max_dist=attn_max_dist,
                                    attn_dropout=attn_dropout,
-                                   prioritize_with_attention=prioritize_with_attention)
+                                   prioritize_with_attention=prioritize_with_attention,
+                                   attn_use_values_as_is=attn_use_values_as_is,
+                                   double_attention=double_attention,
+                                   attn_use_positional_encoding=attn_use_positional_encoding,
+                                   attn_max_relative_position=attn_max_relative_position)
         unrolls = pools[:-1].copy()
         unrolls.reverse()
-        self.decoder = MeshDecoder(unrolls, up_convs, blocks=blocks, transfer_data=transfer_data,
-                                   # attn_n_heads=attn_n_heads,
-                                   # attn_max_dist=attn_max_dist,
-                                   # attn_dropout=attn_dropout)
-                                   )
+        self.decoder = MeshDecoder(unrolls, up_convs, blocks=blocks, transfer_data=transfer_data)
 
     def forward(self, x, meshes):
         fe, before_pool = self.encoder((x, meshes))
@@ -370,25 +378,39 @@ class DownConvWithAttention(DownConv):
                  attn_n_heads=4,  # d_k, d_v,
                  attn_max_dist=None,
                  attn_dropout=0.1,
-                 prioritize_with_attention=False):
+                 prioritize_with_attention=False,
+                 attn_use_values_as_is=False,
+                 double_attention=False,
+                 attn_use_positional_encoding=False,
+                 attn_max_relative_position=8):
         super().__init__(in_channels, out_channels, blocks, pool)
+        if double_attention:
+            assert attn_use_values_as_is, ("must have attn_use_values_as_is=True if double_attention=True, "
+                                           "since the attention layer works on its own outputs")
         self.real_pool = self.pool
         self.pool = None
         self.attention = MeshAttention(
-            attn_n_heads, out_channels, d_k=int(out_channels / attn_n_heads), d_v=int(out_channels / attn_n_heads),
-            attn_max_dist=attn_max_dist, dropout=attn_dropout)
+            n_head=attn_n_heads, d_model=out_channels,
+            d_k=int(out_channels / attn_n_heads), d_v=int(out_channels / attn_n_heads),
+            attn_max_dist=attn_max_dist, dropout=attn_dropout,
+            use_values_as_is=attn_use_values_as_is,
+            use_positional_encoding=attn_use_positional_encoding,
+            max_relative_position=attn_max_relative_position)
         self.prioritize_with_attention = prioritize_with_attention
+        self.double_attention = double_attention
 
     def forward(self, x):
         x2, _ = super().forward(x)
 
         fe, meshes = x
-        x2, attn, attn_per_edge = self.attention(x2, meshes)
+        x2, attn, attn_per_edge, dist_matrices = self.attention(x2, meshes)
 
         before_pool = None
         if self.real_pool:
-            before_pool = x2
+            if self.double_attention:
+                _, _, attn_per_edge, _ = self.attention(x2.detach(), meshes, dist_matrices)
             edge_priorities = attn_per_edge if self.prioritize_with_attention else None
+            before_pool = x2
             x2 = self.real_pool(x2, meshes, edge_priorities)
         return x2, before_pool
 
@@ -468,7 +490,11 @@ class MeshEncoder(nn.Module):
                  attn_n_heads=None,  # d_k, d_v,
                  attn_max_dist=None,
                  attn_dropout=None,
-                 prioritize_with_attention=None):
+                 prioritize_with_attention=None,
+                 attn_use_values_as_is=None,
+                 double_attention=None,
+                 attn_use_positional_encoding=None,
+                 attn_max_relative_position=None):
         if attn_n_heads is not None:
             assert (attn_dropout is not None) and (prioritize_with_attention is not None), (
                 "Must provide attn_n_heads, attn_dropout and prioritize_with_attention"
@@ -490,7 +516,11 @@ class MeshEncoder(nn.Module):
                                           attn_n_heads=attn_n_heads,
                                           attn_max_dist=attn_max_dist,
                                           attn_dropout=attn_dropout,
-                                          prioritize_with_attention=prioritize_with_attention)
+                                          prioritize_with_attention=prioritize_with_attention,
+                                          attn_use_values_as_is=attn_use_values_as_is,
+                                          double_attention=double_attention,
+                                          attn_use_positional_encoding=attn_use_positional_encoding,
+                                          attn_max_relative_position=attn_max_relative_position)
                 )
 
         self.global_pool = None
@@ -542,14 +572,7 @@ class MeshEncoder(nn.Module):
 
 
 class MeshDecoder(nn.Module):
-    def __init__(self, unrolls, convs, blocks=0, batch_norm=True, transfer_data=True,
-                 attn_n_heads=None,  # d_k, d_v,
-                 attn_max_dist=None,
-                 attn_dropout=None):
-        if attn_n_heads is not None:
-            assert attn_dropout is not None, (
-                "Must provide attn_n_heads and attn_dropout when using attention for decoder")
-
+    def __init__(self, unrolls, convs, blocks=0, batch_norm=True, transfer_data=True):
         super(MeshDecoder, self).__init__()
         self.up_convs = []
         for i in range(len(convs) - 2):
@@ -557,17 +580,8 @@ class MeshDecoder(nn.Module):
                 unroll = unrolls[i]
             else:
                 unroll = 0
-
-            if attn_n_heads is None:
-                self.up_convs.append(UpConv(convs[i], convs[i + 1], blocks=blocks, unroll=unroll,
-                                            batch_norm=batch_norm, transfer_data=transfer_data))
-            else:
-                self.up_convs.append(
-                    UpConvWithAttention(convs[i], convs[i + 1], blocks=blocks, unroll=unroll,
-                                        batch_norm=batch_norm, transfer_data=transfer_data,
-                                        attn_n_heads=attn_n_heads,
-                                        attn_max_dist=attn_max_dist,
-                                        attn_dropout=attn_dropout))
+            self.up_convs.append(UpConv(convs[i], convs[i + 1], blocks=blocks, unroll=unroll,
+                                        batch_norm=batch_norm, transfer_data=transfer_data))
 
         self.final_conv = UpConv(convs[-2], convs[-1], blocks=blocks, unroll=False,
                                  batch_norm=batch_norm, transfer_data=False)
