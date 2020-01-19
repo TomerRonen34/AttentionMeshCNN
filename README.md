@@ -1,14 +1,14 @@
-##Presentation
+## Presentation
 **_docs/MeshCNN Attention.pptx_**
 
-##Our contributions
+## Our contributions
 * Global self attention mechanism for meshes
 * MeshPool prioritizing with attention values 
 * Local self attention mechanism for meshes
     * Efficient Cython implementation of shortest paths algorithm
 * Positional encoding for meshes
 
-### Usage Instructions
+## Usage Instructions
 For training our best network run the script **_scripts/cubes/get_data.sh_** and then **_scripts/cubes/rpr_global.sh_**
 
 The flags which were added by us:
