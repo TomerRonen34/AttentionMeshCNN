@@ -34,11 +34,11 @@ class BaseOptions:
         self.parser.add_argument('--attn_dropout', type=float, default=0.1, help='dropout fraction for attention layer')
         self.parser.add_argument('--attn_max_dist', type=int, default=None, help='max distance for local attention. default (None) is global attention')
         self.parser.add_argument('--attn_use_values_as_is', action='store_true',
-                                 help='if True, attention layers learn a weighting of the input features. '
+                                 help='if given, attention layers learn a weighting of the input features. '
                                       'default behavior is learning a weighting of a linear transformation '
                                       'of the input features.')
         self.parser.add_argument('--double_attention', action='store_true',
-                                 help='if True, the edge priorities are calculated using the results of applying the attention layer to the '
+                                 help='if given, the edge priorities are calculated using the results of applying the attention layer to the '
                                       'results of itself. default behavior is calculating the priorities from the results of applying the '
                                       'attention to the convolutional features. '
                                       'NOTE: attn_use_values_as_is must be True if you use this option, since the attention layer works on its own outputs.')
@@ -48,10 +48,10 @@ class BaseOptions:
                                       'where hops are only allowed through convolutional neighbors (edges that share the same triangle). '
                                       'mathematically, this is shortest path in a graph where every edge is a node and adjacency '
                                       'is determined in the same way as convolutional neighborhood.')
-        self.parser.add_argument('--attn_max_relative_position', type=int, default=8,
+        self.parser.add_argument('--attn_max_relative_position', type=int, default=6,
                                  help='the maximal relative position for positional encoding. edges further aways than max_pos '
-                                      'are treated as if their position is max_pos. an 8-distance-neighborhood of an edge contains '
-                                      'about 150 edges.')
+                                      'are treated as if their position is max_pos. a 5-distance-neighborhood of an edge contains '
+                                      'about 60 edges (see doc/neighbors_vs_local.png or .csv).')
         # general params
         self.parser.add_argument('--num_threads', default=3, type=int, help='# threads for loading data')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')

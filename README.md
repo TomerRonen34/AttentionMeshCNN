@@ -1,98 +1,50 @@
-<img src='docs/imgs/alien.gif' align="right" width=325>
-<br><br><br>
+##Presentation
+**_docs/MeshCNN Attention.pptx_**
 
-# MeshCNN in PyTorch
+##Our contributions
+* Global self attention mechanism for meshes
+* MeshPool prioritizing with attention values 
+* Local self attention mechanism for meshes
+    * Efficient Cython implementation of shortest paths algorithm
+* Positional encoding for meshes
 
+### Usage Instructions
+For training our best network run the script **_scripts/cubes/get_data.sh_** and then **_scripts/cubes/rpr_global.sh_**
 
-### SIGGRAPH 2019 [[Paper]](https://bit.ly/meshcnn) [[Project Page]](https://ranahanocka.github.io/MeshCNN/)<br>
+The flags which were added by us:
 
-MeshCNN is a general-purpose deep neural network for 3D triangular meshes, which can be used for tasks such as 3D shape classification or segmentation. This framework includes convolution, pooling and unpooling layers which are applied directly on the mesh edges.
+--attn_n_heads, type=int, default=4 \
+number of heads for Multi Headed Attention
 
-<img src="docs/imgs/meshcnn_overview.png" align="center" width="750px"> <br>
+--prioritize_with_attention \
+if given, the priority queue for the pool operation is calculated from the attention softmax.
+default priority is l2 norm.
 
-The code was written by [Rana Hanocka](https://www.cs.tau.ac.il/~hanocka/) and [Amir Hertz](http://pxcm.org/) with support from [Noa Fish](http://www.cs.tau.ac.il/~noafish/).
+--attn_dropout, type=float, default=0.1 \
+dropout fraction for attention layer
 
-# Getting Started
+--attn_max_dist, type=int, default=None \
+max distance for local attention. default (None) is global attention
 
-### Installation
-- Clone this repo:
-```bash
-git clone https://github.com/ranahanocka/MeshCNN.git
-cd MeshCNN
-```
-- Install dependencies: [PyTorch](https://pytorch.org/) version 1.2. <i> Optional </i>: [tensorboardX](https://github.com/lanpa/tensorboardX) for training plots.
-  - Via new conda environment `conda env create -f environment.yml` (creates an environment called meshcnn)
-  
-### 3D Shape Classification on SHREC
-Download the dataset
-```bash
-bash ./scripts/shrec/get_data.sh
-```
+--attn_use_values_as_is \
+if given, attention layers learn a weighting of the input features.
+default behavior is learning a weighting of a linear transformation
+of the input features.
 
-Run training (if using conda env first activate env e.g. ```source activate meshcnn```)
-```bash
-bash ./scripts/shrec/train.sh
-```
+--double_attention \
+if given, the edge priorities are calculated using the results of applying the attention layer to the
+results of itself. default behavior is calculating the priorities from the results of applying the
+attention to the convolutional features.
+NOTE: attn_use_values_as_is must be True if you use this option, since the attention layer works on its own outputs.
 
-To view the training loss plots, in another terminal run ```tensorboard --logdir runs``` and click [http://localhost:6006](http://localhost:6006).
+--attn_use_positional_encoding \
+use relative positional encodings to add positional meaning to attention.
+relative position is determined by the number "hops" it takes to reach one edge from another,
+where hops are only allowed through convolutional neighbors (edges that share the same triangle).
+mathematically, this is shortest path in a graph where every edge is a node and adjacency
+is determined in the same way as convolutional neighborhood.
 
-Run test and export the intermediate pooled meshes:
-```bash
-bash ./scripts/shrec/test.sh
-```
-
-Visualize the network-learned edge collapses:
-```bash
-bash ./scripts/shrec/view.sh
-```
-
-An example of collapses for a mesh:
-
-<img src="/docs/imgs/T252.png" width="450px"/> 
-
-Note, you can also get pre-trained weights using bash ```./scripts/shrec/get_pretrained.sh```. 
-
-In order to use the pre-trained weights, run ```train.sh``` which will compute and save the mean / standard deviation of the training data. 
-
-
-### 3D Shape Segmentation on Humans
-The same as above, to download the dataset / run train / get pretrained / run test / view
-```bash
-bash ./scripts/human_seg/get_data.sh
-bash ./scripts/human_seg/train.sh
-bash ./scripts/human_seg/get_pretrained.sh
-bash ./scripts/human_seg/test.sh
-bash ./scripts/human_seg/view.sh
-```
-
-Some segmentation result examples:
-
-<img src="/docs/imgs/shrec__10_0.png" height="150px"/> <img src="/docs/imgs/shrec__14_0.png" height="150px"/> <img src="/docs/imgs/shrec__2_0.png" height="150px"/> 
-
-### Additional Datasets
-The same scripts also exist for COSEG segmentation in ```scripts/coseg_seg``` and cubes classification in ```scripts/cubes```. 
-
-# More Info
-Check out the [MeshCNN wiki](https://github.com/ranahanocka/MeshCNN/wiki) for more details. Specifically, see info on [segmentation](https://github.com/ranahanocka/MeshCNN/wiki/Segmentation) and [data processing](https://github.com/ranahanocka/MeshCNN/wiki/Data-Processing).
-
-# Citation
-If you find this code useful, please consider citing our paper
-```
-@article{hanocka2019meshcnn,
-  title={MeshCNN: A Network with an Edge},
-  author={Hanocka, Rana and Hertz, Amir and Fish, Noa and Giryes, Raja and Fleishman, Shachar and Cohen-Or, Daniel},
-  journal={ACM Transactions on Graphics (TOG)},
-  volume={38},
-  number={4},
-  pages = {90:1--90:12},
-  year={2019},
-  publisher={ACM}
-}
-```
-
-
-# Questions / Issues
-If you have questions or issues running this code, please open an issue so we can know to fix it.
-  
-# Acknowledgments
-This code design was adopted from [pytorch-CycleGAN-and-pix2pix](https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix).
+--attn_max_relative_position, type=int, default=6 \
+the maximal relative position for positional encoding. edges further aways than max_pos
+are treated as if their position is max_pos. an 5-distance-neighborhood of an edge contains
+about 60 edges (see doc/neighbors_vs_local.png or .csv)
