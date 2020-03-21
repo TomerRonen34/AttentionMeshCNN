@@ -55,14 +55,19 @@ def split_classification_dataset(data_dir, num_splits, test_size):
     obj_paths, labels = gather_obj_paths(data_dir)
     dataset_splits = multiple_train_val_split(obj_paths, labels, num_splits, test_size)
     for i_split, dataset_split in enumerate(dataset_splits):
-        split_dir = data_dir + "_split_" + str(i_split)
+        data_dir_name = osp.basename(osp.normpath(data_dir))
+        split_dir = osp.join(data_dir + "_val_splits", data_dir_name + "_val_split_" + str(i_split))
         obj_paths_train, obj_paths_val, labels_train, labels_val = dataset_split
         copy_dataset_split_files(obj_paths_train, obj_paths_val, labels_train, labels_val,
                                  data_dir, split_dir)
 
 
-if __name__ == '__main__':
-    _data_dir = osp.abspath(osp.dirname(__file__) + "/../datasets/shrec_16")
-    split_classification_dataset(data_dir=_data_dir,
+def example():
+    data_dir = osp.abspath(osp.dirname(__file__) + "/../datasets/shrec_16")
+    split_classification_dataset(data_dir=data_dir,
                                  num_splits=4,
                                  test_size=0.25)
+
+
+if __name__ == '__main__':
+    example()
