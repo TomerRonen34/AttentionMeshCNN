@@ -1,5 +1,6 @@
 ## Presentation
 **_docs/MeshCNN Attention.pptx_**
+https://github.com/TomerRonen34/AttentionMeshCNN/blob/master/docs/MeshCNN%20Attention.pptx
 
 ## Our contributions
 * Global self attention mechanism for meshes
